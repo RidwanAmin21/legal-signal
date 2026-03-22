@@ -74,18 +74,19 @@ def seed_prompts(metro: str = "dallas") -> int:
 
 
 def seed_registry(market: str) -> int:
-    """Seed firm_registry for a market. Uses minimal Dallas PI firms if no seed file."""
+    """Seed firm_registry for a market from db/seeds/{market}.json."""
     db = get_supabase()
-    # Minimal Dallas PI firms for initial testing
-    default_firms = [
-        {"canonical_name": "Mullen & Mullen Law Firm", "aliases": ["Mullen & Mullen", "Shane Mullen"], "normalized_name": "mullen mullen", "domain": "mullenandmullen.com"},
-        {"canonical_name": "The Callahan Law Firm", "aliases": ["Callahan Law"], "normalized_name": "callahan", "domain": "callahanlaw.com"},
-        {"canonical_name": "Angel Reyes & Associates", "aliases": ["Angel Reyes", "Reyes & Associates"], "normalized_name": "angel reyes", "domain": "angelreyeslaw.com"},
-        {"canonical_name": "Thompson Law", "aliases": ["Thompson Law Firm"], "normalized_name": "thompson", "domain": "thompsonlaw.com"},
-        {"canonical_name": "Baron & Budd", "aliases": [], "normalized_name": "baron budd", "domain": "baronandbudd.com"},
-        {"canonical_name": "The Lenahan Law Firm", "aliases": ["Lenahan Law"], "normalized_name": "lenahan", "domain": "lenahanlaw.com"},
-        {"canonical_name": "Varghese Summersett", "aliases": [], "normalized_name": "varghese summersett", "domain": "versustexas.com"},
-    ]
+    seeds_dir = Path(__file__).parent / "seeds"
+    seed_file = seeds_dir / f"{market}.json"
+
+    if seed_file.exists():
+        with open(seed_file, encoding="utf-8") as f:
+            default_firms = json.load(f)
+        logger.info("Loading %d firms from %s", len(default_firms), seed_file)
+    else:
+        logger.warning("No seed file found at %s — using empty list", seed_file)
+        default_firms = []
+
     inserted = 0
     for firm in default_firms:
         try:
