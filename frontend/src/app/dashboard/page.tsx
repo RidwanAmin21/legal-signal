@@ -42,7 +42,7 @@ const ENGINE_ICON: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
   "Pending Review": "text-warning bg-warning/10",
   "Draft":          "text-muted bg-white/5",
-  "In Review":      "text-blue-400 bg-blue-400/10",
+  "In Review":      "text-info bg-info/10",
   "Approved":       "text-success bg-success/10",
   "Published":      "text-accent bg-accent/10",
 };

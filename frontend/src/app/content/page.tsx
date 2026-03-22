@@ -86,14 +86,14 @@ const CONTENT_ITEMS = [
 const STATUS_STYLES: Record<string, string> = {
   "Pending Review": "text-warning bg-warning/10",
   "Draft":          "text-muted bg-white/5",
-  "In Review":      "text-blue-400 bg-blue-400/10",
+  "In Review":      "text-info bg-info/10",
   "Approved":       "text-success bg-success/10",
   "Published":      "text-accent bg-accent/10",
 };
 
 const TYPE_STYLES: Record<string, string> = {
   "FAQ":   "text-secondary bg-white/5",
-  "Guide": "text-blue-400 bg-blue-400/10",
+  "Guide": "text-info bg-info/10",
 };
 
 export default function ContentPage() {
