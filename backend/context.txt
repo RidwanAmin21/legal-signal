@@ -1,0 +1,193 @@
+  What the Backend Does
+
+  LegalSignal's backend is an AI visibility monitoring pipeline for law firms. It answers: "When someone asks an AI chatbot for lawyer
+   recommendations in Dallas, does your firm get mentioned?"
+
+  The Pipeline (end-to-end in pipeline.py)
+
+  1. QUERY    → Send 26 legal prompts to 3 AI platforms (Perplexity, ChatGPT, Gemini)
+  2. EXTRACT  → Use GPT-4o-mini to pull structured firm mentions from each response
+  3. RESOLVE  → Match extracted names to canonical firms via alias lookup + fuzzy matching
+  4. SCORE    → Compute a 0-100 visibility score from mention rate, position, and sentiment
+  5. REPORT   → Generate a PDF report + HTML email, send via Resend
+  6. STORE    → Everything persisted to Supabase (runs, responses, scores)
+
+  Each step is synchronous, single-process, no task queue. The whole run for one client takes ~2-5 minutes depending on how many
+  prompts and platforms are configured.
+
+  Module Breakdown
+
+  ┌─────────────┬───────────────────┬─────────────────────────────────────────────────────────────────────────────────────────────┐
+  │   Module    │       Role        │                                         Key Detail                                          │
+  ├─────────────┼───────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ providers/  │ Query AI APIs     │ 3 providers, each with tenacity retry (3 attempts, exponential backoff). Perplexity gets    │
+  │             │                   │ real citations; OpenAI/Gemini get geo-localized prompts                                     │
+  ├─────────────┼───────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ extraction/ │ Structured        │ GPT-4o-mini parses firm names/positions/sentiment from raw text. Falls back to regex if no  │
+  │             │ extraction        │ OpenAI key                                                                                  │
+  ├─────────────┼───────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ resolution/ │ Entity resolution │ Exact alias match → fuzzy match (rapidfuzz token_sort_ratio). Firms below 65% confidence    │
+  │             │                   │ get flagged for manual review                                                               │
+  ├─────────────┼───────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ scoring/    │ Score computation │ mention_rate × 50 + first_position_rate × 30 + sentiment_rate × 20 = 0-100                  │
+  ├─────────────┼───────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ reporting/  │ PDF + email       │ WeasyPrint renders HTML→PDF. Resend sends email with PDF attachment                         │
+  ├─────────────┼───────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ db/         │ Supabase client + │ Singleton client, migration SQL files, seed functions for prompts/registry/demo             │
+  │             │  seeds            │                                                                                             │
+  ├─────────────┼───────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ config/     │ Settings +        │ Pydantic settings from .env, scoring weights, platform models, fuzzy thresholds             │
+  │             │ constants         │                                                                                             │
+  └─────────────┴───────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  ---
+  Current Development Status
+
+  What's built and working:
+  - Full pipeline: query → extract → resolve → score → report → email delivery
+  - 3 AI providers with retry logic
+  - GPT-4o-mini extraction with regex fallback
+  - Fuzzy entity resolution with admin review flagging
+  - PDF report generation (WeasyPrint)
+  - Email delivery (Resend)
+  - Idempotency (skips if completed run exists today)
+  - 26 Dallas PI prompts seeded
+  - ~20 Dallas PI firm registry seeded
+  - CLI with run/health/seed/migrate commands
+  - Sentry error tracking (production only)
+  - 33+ backend unit tests (extraction, resolution, scoring, reporting, pipeline)
+  - RLS policies for multi-tenant data access
+  - Frontend dashboard with auth-gated API routes
+
+  What was added in the last two commits:
+  - Retry decorators on all 3 providers
+  - Fixed OpenAI extraction to use {"firms": [...]} JSON wrapper
+  - Fixed regex fallback to emit "unknown" sentiment (scorer excludes unknowns)
+  - Pipeline idempotency (skip if already ran today, clean stale runs)
+  - Scorer deduplicates first-position by (prompt_id, platform)
+  - 7 new test files / expanded test coverage
+  - Frontend auth refactor (useClientId, server-side API routes)
+
+  ---
+  Gaps and Oversights
+
+  Bugs
+
+  1. Gemini retry_error_callback returns None (providers/gemini.py:23). When all 3 retries fail, query() returns None instead of a
+  ProviderResult. The pipeline then calls result["raw_text"] on None and crashes. Should either raise an exception or return an empty
+  ProviderResult.
+  2. run_migrations() only prints 001_initial_schema.sql (db/connection.py:35). Migrations 002-004 are never shown. The function
+  should iterate all .sql files in order.
+  3. Per-platform score denominator is wrong (pipeline.py:259-261). platform_prompts = len(prompts) is correct, but the
+  client_mentions list isn't filtered by platform before passing to compute_visibility_score. The function internally filters, but
+  total_prompts should be len(prompts) (prompts per platform), which it is — this is actually fine. However, total_prompt_count on
+  line 235 is len(prompts) * len(providers), which is the cross-product. The overall score uses this cross-product as denominator,
+  meaning mention_rate is computed per prompt-platform pair, not per prompt. This is intentional but may not match client
+  expectations.
+  4. normalize_firm_name doesn't strip "&" despite the root CLAUDE.md claiming it does. The function only strips suffixes; standalone
+  & and "and" in the middle of names are preserved. This is correct behavior for matching but inconsistent with the documentation.
+
+  Missing Functionality
+
+  5. No admin review workflow in the backend. Resolution flags firms as needs_review: True, but there's no endpoint or CLI command to
+  list/resolve review items. The frontend has an admin review page, but it hits a route (/api/admin/review/resolve) that writes
+  directly to Supabase — there's no backend validation.
+  6. No scheduled execution. Railway runs the pipeline on deploy (startCommand), but there's no cron job or scheduler. Weekly runs
+  require manual deployment or an external trigger.
+  7. No historical trend tracking. visibility_scores stores one row per client per week, but there's no logic to compute
+  week-over-week trends, moving averages, or alerts on score drops.
+  8. No prompt rotation or A/B testing. All 26 prompts run every time. No mechanism to test new prompts, retire stale ones, or vary
+  prompts per run.
+  9. No rate limit handling beyond retries. If a provider rate-limits consistently (429s), the pipeline just retries 3 times and moves
+   on. No backoff across the full run, no circuit breaker.
+
+  Architectural Concerns
+
+  10. seed_registry uses insert not upsert (db/connection.py:86). Unlike seed_prompts which upserts, registry seeding catches
+  duplicate errors in a try/except. This means re-running seed-registry won't update existing firms — only skip them.
+  11. No input validation on geo_config. Pipeline passes client.get("geo_config") or {} directly to providers. If geo_config is
+  malformed (e.g., missing city), providers use hardcoded Dallas defaults, which silently produces wrong results for non-Dallas
+  clients.
+  12. Competitor scores are computed relative to the client's prompts, not the competitor's own relevant prompts. A family law firm's
+  competitors get scored on PI prompts if the client is PI-focused. This is actually correct (measuring competitor visibility in your
+  space) but should be documented.
+  13. No logging configuration beyond basicConfig. All modules use logging.getLogger(__name__) but there's no structured logging, no
+  log levels per module, and no JSON formatting for production.
+
+  ---
+  Next Steps
+
+  Immediate (reliability):
+  1. Fix Gemini retry_error_callback — raise on final failure instead of returning None
+  2. Fix run_migrations() to iterate all migration files
+  3. Add a scheduled trigger (Railway cron service, or GitHub Actions cron)
+
+  Short-term (product value):
+  4. Build admin review CLI command (python main.py review --market dallas_pi) to list and resolve flagged mentions
+  5. Add week-over-week trend computation and score-drop alerts
+  6. Add prompt management commands (add/deactivate prompts via CLI)
+  7. Expand to a second metro/market beyond Dallas
+
+  Medium-term (scalability):
+  8. Add async/concurrent provider queries (asyncio or threading) — 3x speed improvement
+  9. Add structured JSON logging for production observability
+  10. Add integration test that runs the full pipeline against mock providers (no real API keys needed)
+
+  ---
+  Now let me create the backend CLAUDE.md.
+
+
+
+⏺ Done. Here's the summary:
+
+  Backend Overview
+
+  LegalSignal is an AI visibility monitoring service for law firms. The backend sends legal search prompts to 3 AI platforms
+  (Perplexity, ChatGPT, Gemini), extracts which firms get recommended, resolves names to a canonical registry via fuzzy matching,
+  computes a 0-100 visibility score, and emails a PDF report weekly.
+
+  Current Status
+
+  The core pipeline is fully functional end-to-end: query → extract → resolve → score → report → deliver. Last night's commits added
+  retry logic on all providers, fixed extraction JSON parsing, fixed sentiment handling, added pipeline idempotency, and expanded test
+   coverage to 33+ tests.
+
+  Key Gaps Found
+
+  ┌────────────────────────────────────────────────────────────────┬──────────┬────────────────────────┐
+  │                             Issue                              │ Severity │        Location        │
+  ├────────────────────────────────────────────────────────────────┼──────────┼────────────────────────┤
+  │ Gemini returns None on final retry failure (crashes pipeline)  │ High     │ providers/gemini.py:23 │
+  ├────────────────────────────────────────────────────────────────┼──────────┼────────────────────────┤
+  │ run_migrations() only shows migration 001, ignores 002-004     │ Medium   │ db/connection.py:35    │
+  ├────────────────────────────────────────────────────────────────┼──────────┼────────────────────────┤
+  │ No scheduled execution (runs on deploy only)                   │ Medium   │ railway.toml           │
+  ├────────────────────────────────────────────────────────────────┼──────────┼────────────────────────┤
+  │ seed_registry can't update existing firms (insert, not upsert) │ Low      │ db/connection.py:86    │
+  ├────────────────────────────────────────────────────────────────┼──────────┼────────────────────────┤
+  │ No admin review workflow in backend                            │ Low      │ Missing                │
+  ├────────────────────────────────────────────────────────────────┼──────────┼────────────────────────┤
+  │ No structured logging for production                           │ Low      │ Throughout             │
+  └────────────────────────────────────────────────────────────────┴──────────┴────────────────────────┘
+
+  Next Steps (Priority Order)
+
+  1. Fix the Gemini retry_error_callback bug (will crash production)
+  2. Add cron scheduling for weekly pipeline runs
+  3. Fix run_migrations() to show all migration files
+  4. Build admin review CLI for flagged entity resolutions
+  5. Add concurrent provider queries (3x speed improvement)
+  6. Expand to a second market beyond Dallas
+
+  The CLAUDE.md has been created at backend/CLAUDE.md with complete documentation of architecture, conventions, constraints, common
+  mistakes, and how to extend the system (new markets, new providers).
+
+  # From the backend directory                                                                                                        
+  cd "/Users/ridwanamin/Desktop/legal signal/legal-signal/backend"
+  python3 -m venv .venv                                                                                                               
+  source .venv/bin/activate                               
+  pip install -r requirements.txt                                                                                                     
+                                                          
+  After that, always activate the venv before running backend commands:                                                               
+  source .venv/bin/activate
+  python main.py run --all   
