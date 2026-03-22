@@ -3,23 +3,86 @@
 @tailwind utilities;
 
 :root {
-  --background: #faf8f5;
-  --foreground: #1c1917;
-  --muted: #57534e;
-  --accent: #b45309;
-  --accent-muted: #d97706;
-  --border: #e7e5e4;
-  --card: #ffffff;
+  /* Core backgrounds */
+  --background:   #0A0E1A;
+  --bg-secondary: #0F1117;
+  --bg-card:      #14171F;
+  --bg-input:     #1A1D26;
+
+  /* Borders */
+  --border:       #1E2230;
+  --border-focus: #C9A84C;
+
+  /* Text */
+  --foreground:        #FFFFFF;
+  --text-secondary:    #9CA3AF;
+  --muted:             #6B7280;
+
+  /* Accent */
+  --accent:       #C9A84C;
+  --accent-muted: #A88A3A;
+
+  /* Semantic */
+  --card:    #14171F;
+  --success: #34D399;
+  --error:   #E85D5D;
+  --warning: #FBBF24;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
   font-feature-settings: "ss01" 1, "ss02" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dot grid texture utility */
+.dot-grid {
+  background-image: radial-gradient(circle, #1E2230 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Gold focus ring for inputs */
+.input-gold:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Scroll fade-in animation */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+/* Score reveal */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in {
+  animation: scaleIn 0.5s ease-out forwards;
+}
+
+/* Pulsing dot */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+/* Gold bar sweep (CTA hover) */
+@keyframes sweep {
+  from { width: 0%; }
+  to   { width: 100%; }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+  .text-balance { text-wrap: balance; }
 }

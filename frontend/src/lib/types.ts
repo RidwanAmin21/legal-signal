@@ -12,9 +12,9 @@ export interface VisibilityScore {
   id: string;
   client_id: string;
   run_id: string;
-  week_date: string; // ISO date string "2026-03-16"
+  week_date: string;
   overall_score: number;
-  mention_rate: number; // 0.0000–1.0000
+  mention_rate: number;
   first_position_rate: number;
   positive_sentiment_rate: number;
   chatgpt_score: number | null;
@@ -41,7 +41,7 @@ export interface Competitor {
   mention_count: number;
   mention_rate: number;
   score: number;
-  platforms: Record<string, number>; // platform → mention count
+  platforms: Record<string, number>;
 }
 
 export interface ReviewItem {
@@ -63,8 +63,8 @@ export function getScoreBand(score: number): {
   color: string;
   bgColor: string;
 } {
-  if (score >= 70) return { label: "Excellent", color: "text-green-600", bgColor: "bg-green-50" };
-  if (score >= 40) return { label: "Good", color: "text-blue-600", bgColor: "bg-blue-50" };
-  if (score >= 15) return { label: "Fair", color: "text-amber-600", bgColor: "bg-amber-50" };
-  return { label: "Weak", color: "text-red-600", bgColor: "bg-red-50" };
+  if (score >= 70) return { label: "Excellent", color: "text-emerald-400", bgColor: "bg-emerald-400/10" };
+  if (score >= 40) return { label: "Good",      color: "text-blue-400",    bgColor: "bg-blue-400/10"    };
+  if (score >= 15) return { label: "Fair",       color: "text-amber-400",   bgColor: "bg-amber-400/10"   };
+  return               { label: "Weak",       color: "text-red-400",     bgColor: "bg-red-400/10"     };
 }
