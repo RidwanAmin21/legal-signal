@@ -29,16 +29,16 @@ def get_supabase() -> Client:
 
 
 def run_migrations() -> None:
-    """Print migration instructions. Run SQL manually in Supabase SQL Editor."""
+    """Print all migration SQL files. Run them in order in Supabase SQL Editor."""
     migrations_dir = Path(__file__).parent / "migrations"
-    sql_file = migrations_dir / "001_initial_schema.sql"
-    if sql_file.exists():
-        print("Run the following SQL in Supabase SQL Editor:")
-        print(f"  {sql_file}")
-        print("\nOr copy the contents:")
+    sql_files = sorted(migrations_dir.glob("*.sql"))
+    if not sql_files:
+        raise FileNotFoundError(f"No migration files found in {migrations_dir}")
+    print(f"Found {len(sql_files)} migration(s). Run in order in Supabase SQL Editor:\n")
+    for sql_file in sql_files:
+        print(f"-- ========== {sql_file.name} ==========")
         print(sql_file.read_text())
-    else:
-        raise FileNotFoundError(f"Migration file not found: {sql_file}")
+        print()
 
 
 def seed_prompts(metro: str = "dallas") -> int:
@@ -80,25 +80,19 @@ def seed_registry(market: str) -> int:
         logger.warning("No seed file found at %s — using empty list", seed_file)
         default_firms = []
 
-    inserted = 0
+    upserted = 0
     for firm in default_firms:
-        try:
-            db.table("firm_registry").insert({
-                "market": market,
-                "canonical_name": firm["canonical_name"],
-                "aliases": firm.get("aliases", []),
-                "domain": firm.get("domain"),
-                "normalized_name": firm.get("normalized_name"),
-                "is_active": True,
-            }).execute()
-            inserted += 1
-        except Exception as e:
-            if "duplicate" in str(e).lower() or "unique" in str(e).lower():
-                logger.debug("Firm already in registry: %s", firm["canonical_name"])
-            else:
-                raise
-    logger.info("Seeded %d firms for market=%s", inserted, market)
-    return inserted
+        db.table("firm_registry").upsert({
+            "market": market,
+            "canonical_name": firm["canonical_name"],
+            "aliases": firm.get("aliases", []),
+            "domain": firm.get("domain"),
+            "normalized_name": firm.get("normalized_name"),
+            "is_active": True,
+        }, on_conflict="market,canonical_name").execute()
+        upserted += 1
+    logger.info("Seeded %d firms for market=%s", upserted, market)
+    return upserted
 
 
 def seed_demo_client() -> dict:
