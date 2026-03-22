@@ -1,0 +1,62 @@
+# .impeccable.md — LegalSignal Design Context
+
+## Design Context
+
+### Users
+Law firm partners, marketing directors, and practice managers at solo-to-mid-size firms. They are busy, analytically minded professionals who care about business outcomes — not technology. They visit the dashboard to answer one question: "How visible is my firm to clients using AI search, and how do I improve?" They are not power users; they need immediate clarity without having to learn the tool.
+
+### Brand Personality
+**Approachable. Smart. Helpful.**
+
+The product is a trusted advisor, not a data firehose. It should speak plainly, surface insights rather than raw data, and make a complex technical problem feel manageable. The tone is confident without being arrogant, precise without being cold.
+
+Emotional goal: when a partner opens the dashboard and sees their score, they should feel **clarity and trust** — not anxiety, not overwhelm. Every design decision should reinforce that feeling.
+
+### Aesthetic Direction
+- **Dark theme** with a sophisticated navy-to-dark palette (`#0A0E1A` → `#14171F`) and a single gold accent (`#C9A84C`). Dark mode only.
+- **Typography contrast**: Fraunces serif for brand moments and large numbers (authority, warmth), DM Sans for all UI copy (clean readability), JetBrains Mono for metadata labels.
+- **Data-dense but never cluttered**: Tables and charts are the core UI. Spacing and hierarchy do the heavy lifting — not decorations.
+- The aesthetic sits between a **premium intelligence tool** (Bloomberg, Stripe) and a **modern analytics product** (Vercel, Linear) — but warmer and more approachable than both.
+- **Anti-references:** Not a traditional legal software (no dense gray forms, no corporate blue/maroon, no ≥12-column tables with tiny text). Not a generic SaaS (no hollow illustrations, no gradient hero banners, no "Get Started Free!" energy).
+
+### Design Principles
+
+1. **Clarity over completeness.** Show the insight, not the data behind it. The overall score is always the hero. Supporting data is progressive — one tap deeper, never all at once.
+
+2. **Trust through consistency.** Every screen shares the same visual grammar: same card style, same spacing rhythm, same color semantics (green=good, amber=fair, red=weak). When nothing surprises, users relax and trust the tool.
+
+3. **Warmth inside precision.** The dark palette and serif type give the product authority; the approachable copy tone, smooth micro-interactions, and gold highlights give it warmth. Neither edge should dominate.
+
+4. **Earn every pixel.** No decorative elements without function. Borders, shadows, and backgrounds exist to separate and group — not to decorate. When in doubt, remove it.
+
+5. **Make the next step obvious.** Every state — empty, loading, error, success — should tell the user exactly what happens next. Dead ends are a design failure.
+
+---
+
+## Token Reference
+
+| Token | Value | Usage |
+|---|---|---|
+| `--background` | `#0A0E1A` | Page background |
+| `--bg-secondary` | `#0F1117` | Sidebar, secondary panels |
+| `--bg-card` | `#14171F` | All card surfaces |
+| `--bg-input` | `#1A1D26` | Input fields |
+| `--border` | `#1E2230` | Dividers, card borders |
+| `--accent` | `#C9A84C` | CTAs, active states, "your firm" highlights |
+| `--accent-muted` | `#A88A3A` | Hover on accent |
+| `--foreground` | `#FFFFFF` | Primary text |
+| `--text-secondary` | `#9CA3AF` | Labels, captions |
+| `--muted` | `#6B7280` | Disabled, placeholder |
+| `--success` | `#34D399` | Score ≥70 |
+| `--warning` | `#FBBF24` | Score 15–69 |
+| `--error` | `#E85D5D` | Score <15 |
+
+| Font | Stack | Role |
+|---|---|---|
+| Fraunces | Serif | Display headings, score numbers, brand name |
+| DM Sans | Sans-serif | All UI body copy, labels, tables |
+| JetBrains Mono | Monospace | Dates, metadata abbreviations, code |
+
+---
+
+*Last updated: 2026-03-22*
