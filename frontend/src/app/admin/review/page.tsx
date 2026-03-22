@@ -1,10 +1,11 @@
 "use client";
 import Nav from "@/components/Nav";
 import ReviewQueue from "@/components/ReviewQueue";
-
-const CLIENT_ID = process.env.NEXT_PUBLIC_CLIENT_ID ?? "";
+import { useClientId } from "@/hooks/useClientId";
 
 export default function ReviewPage() {
+  const { clientId, loading } = useClientId();
+
   return (
     <div className="min-h-screen bg-background">
       <Nav />
@@ -14,7 +15,11 @@ export default function ReviewPage() {
           Firm mentions that need manual resolution before they count toward scores
         </p>
         <div className="mt-8">
-          <ReviewQueue clientId={CLIENT_ID} />
+          {loading ? (
+            <p className="text-sm text-muted">Loading…</p>
+          ) : (
+            <ReviewQueue clientId={clientId} />
+          )}
         </div>
       </main>
     </div>

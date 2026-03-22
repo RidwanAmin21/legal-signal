@@ -135,7 +135,7 @@
                 Your full report (with competitor comparison) is attached as a PDF.
                 View live data on your dashboard.
               </p>
-              <a href="https://app.legalsignal.com/dashboard"
+              <a href="{{ dashboard_url | default('https://app.legalsignal.com/dashboard') }}"
                  style="display:inline-block;background-color:#b45309;color:#ffffff;padding:12px 28px;border-radius:6px;font-size:13px;font-weight:bold;text-decoration:none;letter-spacing:0.3px;">
                 View Dashboard
               </a>

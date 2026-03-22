@@ -24,19 +24,17 @@ def compute_visibility_score(
         return _empty_score()
 
     mentioned_prompts = set()
-    first_positions = 0
-    positive_count = 0
+    first_position_prompts: set[tuple] = set()
     total_mentions = len(mentions)
 
     for m in mentions:
         mentioned_prompts.add(m.get("prompt_id"))
         if m.get("position") == 1:
-            first_positions += 1
-        if m.get("sentiment") == "positive":
-            positive_count += 1
+            # Deduplicate by (prompt_id, platform) to guard against double-extraction
+            first_position_prompts.add((m.get("prompt_id"), m.get("platform")))
 
     mention_rate = len(mentioned_prompts) / total_prompts
-    first_position_rate = first_positions / total_mentions if total_mentions > 0 else 0.0
+    first_position_rate = len(first_position_prompts) / total_mentions if total_mentions > 0 else 0.0
 
     # Exclude "unknown" sentiment (regex fallback) from the sentiment calculation.
     # If all sentiments are unknown, default to 0.5 (neutral) to avoid penalizing

@@ -97,6 +97,28 @@ def run_pipeline(client_name: str = None, all_clients: bool = False):
 def _run_single_client(db, client: dict, providers: dict):
     """Execute pipeline for a single client."""
     client_id = client["id"]
+    today = date.today().isoformat()
+
+    # Idempotency check: skip if a completed/delivered run already exists today
+    existing = (
+        db.table("monitoring_runs")
+        .select("id, status")
+        .eq("client_id", client_id)
+        .gte("created_at", f"{today}T00:00:00")
+        .in_("status", ["completed", "delivered"])
+        .limit(1)
+        .execute()
+    )
+    if existing.data:
+        logger.info(
+            f"Skipping {client['firm_name']} — already ran today "
+            f"(run_id={existing.data[0]['id']}, status={existing.data[0]['status']})"
+        )
+        return
+
+    # Clean up any stale running runs from today before starting fresh
+    db.table("monitoring_runs").delete().eq("client_id", client_id).eq("status", "running").gte("created_at", f"{today}T00:00:00").execute()
+
     market = client["market_key"]
     geo_config = client.get("geo_config") or {}
     metro = market.split("_")[0]
@@ -319,6 +341,7 @@ def _deliver_report(db, client: dict, score_data: dict, run_id: str):
             score=score_data,
             previous_score=previous_score,
             week_date=week_date,
+            dashboard_url=f"https://app.legalsignal.com/dashboard?client={client['id']}",
         )
 
         # Render PDF to a temp file

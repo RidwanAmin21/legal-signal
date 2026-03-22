@@ -1,6 +1,9 @@
 "use client";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/DashboardLayout";
+import { useClientId } from "@/hooks/useClientId";
+import { createClient } from "@/lib/supabase-browser";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
   RadarChart, Radar, PolarGrid, PolarAngleAxis,
@@ -87,13 +90,7 @@ const QUERY_OVERLAP = [
   { query: "truck accident lawyer Dallas TX",            thompson: true,  reyes: true,  callahan: true,  you: true  },
 ];
 
-const PLATFORM_CHART_DATA = COMPETITORS.map((c) => ({
-  name: c.you ? "You" : c.name.split(" ")[0],
-  ChatGPT: c.chatgpt,
-  Perplexity: c.perplexity,
-  Gemini: c.gemini,
-  you: c.you,
-}));
+// Note: platform chart data is derived inside the component so the "you" flag is dynamic
 
 const RADAR_DATA = [
   { subject: "ChatGPT",     you: 28, leader: 68 },
@@ -106,12 +103,40 @@ const RADAR_DATA = [
 
 export default function CompetitorsPage() {
   const [selected, setSelected] = useState<string | null>(null);
+  const { clientId } = useClientId();
 
-  const selectedComp = COMPETITORS.find((c) => c.canonical === selected && !c.you) ?? null;
-  const sorted = [...COMPETITORS].sort((a, b) => b.score - a.score);
+  const { data: clientData } = useQuery({
+    queryKey: ["client", clientId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("clients")
+        .select("firm_name")
+        .eq("id", clientId)
+        .single();
+      return data;
+    },
+    enabled: !!clientId,
+  });
+
+  const clientFirmName = clientData?.firm_name ?? FIRM;
+  const competitors = COMPETITORS.map((c) => ({
+    ...c,
+    you: c.canonical === clientFirmName,
+  }));
+
+  const selectedComp = competitors.find((c) => c.canonical === selected && !c.you) ?? null;
+  const sorted = [...competitors].sort((a, b) => b.score - a.score);
+  const platformChartData = competitors.map((c) => ({
+    name: c.you ? "You" : c.name.split(" ")[0],
+    ChatGPT: c.chatgpt,
+    Perplexity: c.perplexity,
+    Gemini: c.gemini,
+    you: c.you,
+  }));
 
   return (
-    <DashboardLayout firmName={FIRM}>
+    <DashboardLayout firmName={clientFirmName}>
       <div className="px-8 py-8">
 
         {/* Header */}
@@ -199,7 +224,7 @@ export default function CompetitorsPage() {
             <div className="rounded-lg border border-border bg-bg-card p-5">
               <h2 className="mb-4 text-sm font-medium text-foreground">Score by Platform</h2>
               <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={PLATFORM_CHART_DATA} margin={{ left: 0, right: 8, top: 0, bottom: 0 }}>
+                <BarChart data={platformChartData} margin={{ left: 0, right: 8, top: 0, bottom: 0 }}>
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#6B7280" }} tickLine={false} axisLine={false} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#6B7280" }} tickLine={false} axisLine={false} />
                   <Tooltip
@@ -207,17 +232,17 @@ export default function CompetitorsPage() {
                     cursor={{ fill: "rgba(255,255,255,0.03)" }}
                   />
                   <Bar dataKey="ChatGPT" name="ChatGPT" radius={[2, 2, 0, 0]}>
-                    {PLATFORM_CHART_DATA.map((entry, i) => (
+                    {platformChartData.map((entry, i) => (
                       <Cell key={i} fill={entry.you ? "#C9A84C" : "#2A2D36"} />
                     ))}
                   </Bar>
                   <Bar dataKey="Perplexity" name="Perplexity" radius={[2, 2, 0, 0]}>
-                    {PLATFORM_CHART_DATA.map((entry, i) => (
+                    {platformChartData.map((entry, i) => (
                       <Cell key={i} fill={entry.you ? "#A88A3A" : "#323540"} />
                     ))}
                   </Bar>
                   <Bar dataKey="Gemini" name="Gemini" radius={[2, 2, 0, 0]}>
-                    {PLATFORM_CHART_DATA.map((entry, i) => (
+                    {platformChartData.map((entry, i) => (
                       <Cell key={i} fill={entry.you ? "#8A7030" : "#3A3D48"} />
                     ))}
                   </Bar>
