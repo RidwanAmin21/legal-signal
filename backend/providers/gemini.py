@@ -1,6 +1,6 @@
 import logging
-import google.generativeai as genai
 import time
+from google import genai
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from .base import BaseProvider, ProviderResult
@@ -13,14 +13,12 @@ class GeminiProvider(BaseProvider):
     name = "gemini"
 
     def __init__(self):
-        genai.configure(api_key=settings.google_api_key)
-        self.model = genai.GenerativeModel("gemini-2.0-flash")
+        self.client = genai.Client(api_key=settings.google_api_key)
 
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=15),
         retry=retry_if_exception_type(Exception),
-        retry_error_callback=lambda retry_state: None,  # return None on final failure
         before_sleep=lambda retry_state: logger.warning(
             f"Gemini request failed (attempt {retry_state.attempt_number}), retrying..."
         ),
@@ -37,7 +35,10 @@ class GeminiProvider(BaseProvider):
         raw_text = ""
 
         try:
-            response = self.model.generate_content(localized_prompt)
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=localized_prompt,
+            )
             raw_text = response.text or ""
         except ValueError as e:
             # Gemini safety block — not retryable, treat as empty response

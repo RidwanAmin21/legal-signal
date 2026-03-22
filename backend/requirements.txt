@@ -1,7 +1,7 @@
 # AI APIs
 openai>=1.0.0
 requests>=2.28.0
-google-generativeai>=0.8.0
+google-genai>=1.0.0
 
 # Config
 pydantic>=2.0.0
