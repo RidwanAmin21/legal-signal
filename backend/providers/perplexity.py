@@ -1,13 +1,25 @@
+import logging
 import requests
 import time
-from .base import BaseProvider, ProviderResult
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+from .base import BaseProvider, ProviderResult
 from config.settings import settings
+
+logger = logging.getLogger(__name__)
 
 
 class PerplexityProvider(BaseProvider):
     name = "perplexity"
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=15),
+        retry=retry_if_exception_type(requests.exceptions.RequestException),
+        before_sleep=lambda retry_state: logger.warning(
+            f"Perplexity request failed (attempt {retry_state.attempt_number}), retrying..."
+        ),
+    )
     def query(self, prompt_text: str, geo_config: dict) -> ProviderResult:
         if not settings.perplexity_api_key:
             raise ValueError("PERPLEXITY_API_KEY is not set")

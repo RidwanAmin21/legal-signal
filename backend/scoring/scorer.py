@@ -37,7 +37,18 @@ def compute_visibility_score(
 
     mention_rate = len(mentioned_prompts) / total_prompts
     first_position_rate = first_positions / total_mentions if total_mentions > 0 else 0.0
-    positive_sentiment_rate = positive_count / total_mentions if total_mentions > 0 else 0.0
+
+    # Exclude "unknown" sentiment (regex fallback) from the sentiment calculation.
+    # If all sentiments are unknown, default to 0.5 (neutral) to avoid penalizing
+    # clients when GPT extraction was unavailable.
+    known_sentiment_mentions = [m for m in mentions if m.get("sentiment") != "unknown"]
+    if known_sentiment_mentions:
+        known_positive = sum(1 for m in known_sentiment_mentions if m.get("sentiment") == "positive")
+        positive_sentiment_rate = known_positive / len(known_sentiment_mentions)
+    elif total_mentions > 0:
+        positive_sentiment_rate = 0.5  # all mentions came from regex fallback
+    else:
+        positive_sentiment_rate = 0.0
 
     overall = int(
         (mention_rate * MENTION_WEIGHT)

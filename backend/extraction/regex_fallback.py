@@ -25,7 +25,7 @@ def regex_extract(response_text: str, known_firms: list[str]) -> list[dict]:
             results.append({
                 "firm_name": match.group(),
                 "position": len(results) + 1,
-                "sentiment": "neutral",
+                "sentiment": "unknown",  # regex can't determine sentiment; scorer handles this
                 "description": "",
             })
 

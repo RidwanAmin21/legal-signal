@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 """
-AI Scraper — Query AI platforms with 26 prompts and extract law firm mentions.
+DEBUG TOOL ONLY — does NOT save anything to the database.
+
+Use this to manually test API queries and inspect raw responses.
+For production pipeline runs use: python main.py run --client <name>
 
 Usage:
     cd backend
     python scrape.py [--platform perplexity|chatgpt|gemini|all] [--limit N]
 
-    --limit N    Run only first N prompts (default: 26, use 2-3 for quick test)
+    --limit N    Run only first N prompts (default: all, use 2-3 for quick test)
     --metro      Metro/market for prompts (default: dallas)
 
 Requires .env with at least one of: PERPLEXITY_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY
 """
+import sys
+print("WARNING: scrape.py is a debug tool. Nothing is saved to the database.", file=sys.stderr)
+print("For production runs: python main.py run --client <name>\n", file=sys.stderr)
 import argparse
 import json
 import sys

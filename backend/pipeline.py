@@ -79,11 +79,19 @@ def run_pipeline(client_name: str = None, all_clients: bool = False):
             "PERPLEXITY_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY"
         )
 
+    failed_clients = []
     for client in clients:
         try:
             _run_single_client(db, client, providers)
         except Exception as e:
             logger.error(f"Pipeline failed for {client['firm_name']}: {e}", exc_info=True)
+            failed_clients.append(client["firm_name"])
+
+    if failed_clients:
+        logger.critical(
+            f"PIPELINE FAILURE: {len(failed_clients)} client(s) failed: "
+            f"{', '.join(failed_clients)}"
+        )
 
 
 def _run_single_client(db, client: dict, providers: dict):
@@ -273,6 +281,7 @@ def _deliver_report(db, client: dict, score_data: dict, run_id: str):
     client_firm = client["firm_name"]
     contact_email = client.get("contact_email")
     week_date = date.today().isoformat()
+    pdf_path = None  # must be initialized before try so finally can safely reference it
 
     if not contact_email:
         logger.warning(f"No contact_email for {client_firm} — skipping email delivery")
@@ -345,7 +354,8 @@ def _deliver_report(db, client: dict, score_data: dict, run_id: str):
         logger.error(f"Report delivery failed for {client_firm}: {e}", exc_info=True)
     finally:
         # Clean up temp PDF regardless of success or failure
-        try:
-            Path(pdf_path).unlink(missing_ok=True)
-        except Exception:
-            pass
+        if pdf_path:
+            try:
+                Path(pdf_path).unlink(missing_ok=True)
+            except Exception:
+                pass

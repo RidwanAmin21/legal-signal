@@ -54,21 +54,14 @@ def seed_prompts(metro: str = "dallas") -> int:
 
     inserted = 0
     for p in prompts:
-        try:
-            db.table("prompts").insert({
-                "text": p["text"],
-                "practice_area": p["practice_area"],
-                "metro": metro,
-                "intent_type": p["intent_type"],
-                "is_active": True,
-            }).execute()
-            inserted += 1
-        except Exception as e:
-            err = str(e).lower()
-            if "duplicate" in err or "unique" in err or "already exists" in err:
-                logger.debug("Prompt already exists: %s", p.get("text", "")[:50])
-            else:
-                raise
+        db.table("prompts").upsert({
+            "text": p["text"],
+            "practice_area": p["practice_area"],
+            "metro": metro,
+            "intent_type": p["intent_type"],
+            "is_active": True,
+        }, on_conflict="text,metro").execute()
+        inserted += 1
     logger.info("Seeded %d prompts for metro=%s", inserted, metro)
     return inserted
 
