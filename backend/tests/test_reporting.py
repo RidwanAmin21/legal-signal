@@ -115,7 +115,10 @@ def test_send_weekly_report_calls_resend(tmp_path):
     pdf_path = str(tmp_path / "sample.pdf")
     Path(pdf_path).write_bytes(b"%PDF-1.4 fake content")
 
-    with patch("reporting.email_delivery.resend.Emails.send") as mock_send:
+    with patch("reporting.email_delivery.settings") as mock_settings, \
+         patch("reporting.email_delivery.resend.Emails.send") as mock_send:
+        mock_settings.resend_api_key = "test-key"
+        mock_settings.from_email = "reports@legalsignal.com"
         mock_send.return_value = {"id": "test-email-id"}
         result = send_weekly_report(
             to_email="test@example.com",
