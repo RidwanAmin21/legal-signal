@@ -12,3 +12,6 @@ supabase>=2.0.0
 
 # Entity matching
 rapidfuzz>=3.6.0
+
+# Testing
+pytest>=7.0.0
