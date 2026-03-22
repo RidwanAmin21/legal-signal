@@ -7,11 +7,18 @@ google-generativeai>=0.8.0
 pydantic>=2.0.0
 pydantic-settings>=2.2.0
 
-# Database (for full pipeline)
+# Database
 supabase>=2.0.0
 
 # Entity matching
 rapidfuzz>=3.6.0
+
+# Templating + PDF
+jinja2>=3.1.0
+weasyprint>=61.0
+
+# Email
+resend>=0.8.0
 
 # Testing
 pytest>=7.0.0

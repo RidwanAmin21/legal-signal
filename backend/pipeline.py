@@ -1,6 +1,7 @@
 """Full monitoring pipeline: AI APIs → extraction → resolution → scoring → DB."""
 import json
 import logging
+import tempfile
 import time
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -12,7 +13,12 @@ from providers.openai_monitor import OpenAIProvider
 from providers.gemini import GeminiProvider
 from resolution.matcher import resolve_mention
 from scoring.scorer import compute_visibility_score
+from reporting.pdf_renderer import render_report
+from reporting.email_delivery import send_weekly_report
 from config.settings import settings
+from jinja2 import Environment, FileSystemLoader
+
+_TEMPLATE_DIR = Path(__file__).parent / "reporting" / "templates"
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +244,7 @@ def _run_single_client(db, client: dict, providers: dict):
         **score_data,
     }).execute()
 
-    # 6. Update run status
+    # 6. Update run status to completed
     db.table("monitoring_runs").update({
         "status": "completed",
         "completed_at": datetime.now(timezone.utc).isoformat(),
@@ -256,3 +262,90 @@ def _run_single_client(db, client: dict, providers: dict):
         f"reviews={review_items}, "
         f"errors={len(errors)}"
     )
+
+    # 7. Generate PDF report + send email
+    _deliver_report(db, client, score_data, run_id)
+
+
+def _deliver_report(db, client: dict, score_data: dict, run_id: str):
+    """Render PDF report and send email. Logs errors but does not raise."""
+    client_id = client["id"]
+    client_firm = client["firm_name"]
+    contact_email = client.get("contact_email")
+    week_date = date.today().isoformat()
+
+    if not contact_email:
+        logger.warning(f"No contact_email for {client_firm} — skipping email delivery")
+        return
+
+    if not settings.resend_api_key:
+        logger.warning("RESEND_API_KEY not set — skipping email delivery")
+        return
+
+    try:
+        # Fetch the previous score for delta display
+        prev_result = (
+            db.table("visibility_scores")
+            .select("*")
+            .eq("client_id", client_id)
+            .neq("run_id", run_id)
+            .order("week_date", desc=True)
+            .limit(1)
+            .execute()
+        )
+        previous_score = prev_result.data[0] if prev_result.data else None
+
+        # Build a sorted competitors list for the PDF table
+        competitors = [
+            {"name": name, "score": s}
+            for name, s in score_data.get("competitor_scores", {}).items()
+        ]
+        competitors.sort(key=lambda x: x["score"], reverse=True)
+
+        # Render email HTML from digest template
+        env = Environment(loader=FileSystemLoader(str(_TEMPLATE_DIR)))
+        digest_template = env.get_template("weekly_digest.html")
+        email_html = digest_template.render(
+            client=client,
+            score=score_data,
+            previous_score=previous_score,
+            week_date=week_date,
+        )
+
+        # Render PDF to a temp file
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            pdf_path = tmp.name
+
+        render_report(
+            client=client,
+            score=score_data,
+            previous_score=previous_score,
+            competitors=competitors,
+            week_date=week_date,
+            output_path=pdf_path,
+        )
+
+        # Send
+        send_weekly_report(
+            to_email=contact_email,
+            firm_name=client_firm,
+            score=score_data["overall_score"],
+            pdf_path=pdf_path,
+            html_content=email_html,
+        )
+
+        # Mark run as delivered
+        db.table("monitoring_runs").update({
+            "status": "delivered",
+        }).eq("id", run_id).execute()
+
+        logger.info(f"Report delivered to {contact_email} for {client_firm}")
+
+    except Exception as e:
+        logger.error(f"Report delivery failed for {client_firm}: {e}", exc_info=True)
+    finally:
+        # Clean up temp PDF regardless of success or failure
+        try:
+            Path(pdf_path).unlink(missing_ok=True)
+        except Exception:
+            pass

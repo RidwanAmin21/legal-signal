@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LegalSignal Weekly Report — {{ client.firm_name }}</title>
+  <style>
+    /* ── Reset ── */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ── Page ── */
+    @page {
+      size: Letter;
+      margin: 0.75in 0.75in 0.9in 0.75in;
+      @bottom-center {
+        content: "LegalSignal · Confidential · " string(firm-name) " · " string(week-date);
+        font-size: 8px;
+        color: #78716c;
+        font-family: Georgia, serif;
+      }
+    }
+
+    body {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 11px;
+      color: #1c1917;
+      background: #ffffff;
+      line-height: 1.5;
+    }
+
+    /* ── Running footer strings ── */
+    .firm-name-hidden { string-set: firm-name content(); position: absolute; visibility: hidden; }
+    .week-date-hidden  { string-set: week-date  content(); position: absolute; visibility: hidden; }
+
+    /* ── Header ── */
+    .header {
+      border-bottom: 2px solid #1c1917;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+    .header-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .brand {
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: -0.5px;
+      color: #1c1917;
+    }
+    .brand-tag {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #78716c;
+      margin-top: 2px;
+    }
+    .header-meta {
+      text-align: right;
+      font-size: 10px;
+      color: #57534e;
+    }
+    .header-firm {
+      font-size: 14px;
+      font-weight: bold;
+      color: #1c1917;
+    }
+
+    /* ── Section title ── */
+    .section-title {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #78716c;
+      margin-bottom: 10px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #e7e5e4;
+    }
+
+    /* ── Score hero ── */
+    .score-section {
+      margin-bottom: 28px;
+    }
+    .score-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .score-main-cell {
+      width: 180px;
+      vertical-align: top;
+      padding-right: 24px;
+      border-right: 1px solid #e7e5e4;
+    }
+    .score-number {
+      font-size: 64px;
+      font-weight: bold;
+      line-height: 1;
+      color: #1c1917;
+    }
+    .score-denom {
+      font-size: 14px;
+      color: #78716c;
+    }
+    .score-band {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .band-excellent { background: #dcfce7; color: #166534; }
+    .band-good      { background: #dbeafe; color: #1e40af; }
+    .band-fair      { background: #fef3c7; color: #92400e; }
+    .band-weak      { background: #fee2e2; color: #991b1b; }
+
+    .score-delta-cell {
+      vertical-align: top;
+      padding-left: 24px;
+      padding-right: 24px;
+      border-right: 1px solid #e7e5e4;
+      width: 140px;
+    }
+    .delta-label { font-size: 9px; color: #78716c; margin-bottom: 4px; }
+    .delta-value { font-size: 28px; font-weight: bold; }
+    .delta-up   { color: #166534; }
+    .delta-down { color: #991b1b; }
+    .delta-same { color: #78716c; }
+
+    .score-components-cell {
+      vertical-align: top;
+      padding-left: 24px;
+    }
+    .component-row {
+      margin-bottom: 8px;
+    }
+    .component-label {
+      font-size: 9px;
+      color: #57534e;
+      margin-bottom: 2px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .bar-bg {
+      width: 100%;
+      height: 6px;
+      background: #e7e5e4;
+      border-radius: 3px;
+    }
+    .bar-fill {
+      height: 6px;
+      background: #b45309;
+      border-radius: 3px;
+    }
+
+    /* ── Platform breakdown ── */
+    .platforms-section {
+      margin-bottom: 28px;
+    }
+    .platform-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .platform-cell {
+      width: 33.33%;
+      padding: 12px 16px;
+      border: 1px solid #e7e5e4;
+      vertical-align: top;
+    }
+    .platform-cell:not(:last-child) {
+      border-right: none;
+    }
+    .platform-name {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #78716c;
+      margin-bottom: 6px;
+    }
+    .platform-score {
+      font-size: 32px;
+      font-weight: bold;
+      color: #1c1917;
+      line-height: 1;
+    }
+    .platform-score-null {
+      font-size: 14px;
+      color: #a8a29e;
+    }
+
+    /* ── Competitors ── */
+    .competitors-section {
+      margin-bottom: 28px;
+    }
+    .comp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+    .comp-table th {
+      text-align: left;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #78716c;
+      padding: 6px 8px;
+      border-bottom: 1px solid #1c1917;
+      font-weight: normal;
+    }
+    .comp-table th.right { text-align: right; }
+    .comp-table td {
+      padding: 8px;
+      border-bottom: 1px solid #e7e5e4;
+      color: #1c1917;
+      vertical-align: middle;
+    }
+    .comp-table td.right { text-align: right; }
+    .comp-table tr.client-row td {
+      font-weight: bold;
+      background: #fef3c7;
+    }
+    .rank-badge {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #e7e5e4;
+      text-align: center;
+      line-height: 18px;
+      font-size: 9px;
+      color: #57534e;
+    }
+    .rank-badge-1 { background: #b45309; color: #ffffff; }
+
+    /* ── Footer note ── */
+    .report-footer {
+      margin-top: 32px;
+      padding-top: 12px;
+      border-top: 1px solid #e7e5e4;
+      font-size: 8px;
+      color: #a8a29e;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Running footer string helpers -->
+<span class="firm-name-hidden">{{ client.firm_name }}</span>
+<span class="week-date-hidden">Week of {{ week_date }}</span>
+
+<!-- ── Header ── -->
+<div class="header">
+  <div class="header-inner">
+    <div>
+      <div class="brand">LegalSignal</div>
+      <div class="brand-tag">AI Search Visibility Report</div>
+    </div>
+    <div class="header-meta">
+      <div class="header-firm">{{ client.firm_name }}</div>
+      <div>Week of {{ week_date }}</div>
+      <div>{{ client.market_key | replace("_", " ") | title }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Visibility Score ── -->
+<div class="score-section">
+  <div class="section-title">Visibility Score</div>
+  <table class="score-table">
+    <tr>
+      <!-- Big score number -->
+      <td class="score-main-cell">
+        <div class="score-number">{{ score.overall_score }}</div>
+        <div class="score-denom">out of 100</div>
+        {% set s = score.overall_score %}
+        {% if s >= 70 %}
+          <span class="score-band band-excellent">Excellent</span>
+        {% elif s >= 40 %}
+          <span class="score-band band-good">Good</span>
+        {% elif s >= 15 %}
+          <span class="score-band band-fair">Fair</span>
+        {% else %}
+          <span class="score-band band-weak">Weak</span>
+        {% endif %}
+      </td>
+
+      <!-- Week-over-week delta -->
+      <td class="score-delta-cell">
+        <div class="delta-label">vs. last week</div>
+        {% if previous_score %}
+          {% set delta = score.overall_score - previous_score.overall_score %}
+          {% if delta > 0 %}
+            <div class="delta-value delta-up">+{{ delta }}</div>
+          {% elif delta < 0 %}
+            <div class="delta-value delta-down">{{ delta }}</div>
+          {% else %}
+            <div class="delta-value delta-same">—</div>
+          {% endif %}
+        {% else %}
+          <div class="delta-value delta-same">—</div>
+          <div style="font-size:9px;color:#a8a29e;margin-top:4px;">First report</div>
+        {% endif %}
+      </td>
+
+      <!-- Score components bars -->
+      <td class="score-components-cell">
+        {% if score.score_components %}
+          {% set m = score.score_components.mention %}
+          {% set p = score.score_components.position %}
+          {% set se = score.score_components.sentiment %}
+
+          <div class="component-row">
+            <div class="component-label">
+              <span>Mention rate</span>
+              <span>{{ (m.raw * 100) | round(0) | int }}%</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" style="width:{{ (m.raw * 100) | round(0) | int }}%;"></div></div>
+          </div>
+
+          <div class="component-row">
+            <div class="component-label">
+              <span>Top position rate</span>
+              <span>{{ (p.raw * 100) | round(0) | int }}%</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" style="width:{{ (p.raw * 100) | round(0) | int }}%;"></div></div>
+          </div>
+
+          <div class="component-row">
+            <div class="component-label">
+              <span>Positive sentiment</span>
+              <span>{{ (se.raw * 100) | round(0) | int }}%</span>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" style="width:{{ (se.raw * 100) | round(0) | int }}%;"></div></div>
+          </div>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+</div>
+
+<!-- ── Platform Breakdown ── -->
+<div class="platforms-section">
+  <div class="section-title">Platform Breakdown</div>
+  <table class="platform-table">
+    <tr>
+      <td class="platform-cell">
+        <div class="platform-name">ChatGPT</div>
+        {% if score.chatgpt_score is not none %}
+          <div class="platform-score">{{ score.chatgpt_score }}</div>
+        {% else %}
+          <div class="platform-score-null">No data</div>
+        {% endif %}
+      </td>
+      <td class="platform-cell">
+        <div class="platform-name">Perplexity</div>
+        {% if score.perplexity_score is not none %}
+          <div class="platform-score">{{ score.perplexity_score }}</div>
+        {% else %}
+          <div class="platform-score-null">No data</div>
+        {% endif %}
+      </td>
+      <td class="platform-cell">
+        <div class="platform-name">Gemini</div>
+        {% if score.gemini_score is not none %}
+          <div class="platform-score">{{ score.gemini_score }}</div>
+        {% else %}
+          <div class="platform-score-null">No data</div>
+        {% endif %}
+      </td>
+    </tr>
+  </table>
+</div>
+
+<!-- ── Competitor Comparison ── -->
+{% if competitors %}
+<div class="competitors-section">
+  <div class="section-title">Competitor Comparison</div>
+  <table class="comp-table">
+    <thead>
+      <tr>
+        <th style="width:32px;">#</th>
+        <th>Firm</th>
+        <th class="right" style="width:80px;">Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set all_firms = [{"name": client.firm_name, "score": score.overall_score, "is_client": true}] %}
+      {% for comp_name, comp_score in score.competitor_scores.items() %}
+        {% set all_firms = all_firms + [{"name": comp_name, "score": comp_score, "is_client": false}] %}
+      {% endfor %}
+      {% set sorted_firms = all_firms | sort(attribute="score", reverse=true) %}
+      {% for firm in sorted_firms %}
+        <tr {% if firm.is_client %}class="client-row"{% endif %}>
+          <td>
+            <span class="rank-badge {% if loop.index == 1 %}rank-badge-1{% endif %}">{{ loop.index }}</span>
+          </td>
+          <td>{{ firm.name }}{% if firm.is_client %} &#x2605;{% endif %}</td>
+          <td class="right"><strong>{{ firm.score }}</strong></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- ── Footer ── -->
+<div class="report-footer">
+  This report is confidential and prepared exclusively for {{ client.firm_name }}.
+  Scores are computed from AI platform responses to representative legal search queries.
+  LegalSignal does not guarantee specific outcomes from changes to AI platform rankings.
+  &copy; {{ week_date[:4] }} LegalSignal.
+</div>
+
+</body>
+</html>

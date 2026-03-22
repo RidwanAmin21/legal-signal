@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LegalSignal Weekly Report — {{ client.firm_name }}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#faf8f5;font-family:Georgia,'Times New Roman',serif;color:#1c1917;">
+
+  <!-- Preheader text (hidden) -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">
+    Your AI visibility score for the week of {{ week_date }}: {{ score.overall_score }}/100
+    &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </div>
+
+  <!-- Outer wrapper -->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#faf8f5;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+
+        <!-- Card -->
+        <table width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background-color:#ffffff;border:1px solid #e7e5e4;border-radius:8px;overflow:hidden;">
+
+          <!-- Header band -->
+          <tr>
+            <td style="background-color:#1c1917;padding:20px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td>
+                    <span style="font-size:18px;font-weight:bold;color:#ffffff;letter-spacing:-0.3px;">LegalSignal</span>
+                    <br/>
+                    <span style="font-size:10px;color:#a8a29e;text-transform:uppercase;letter-spacing:1.5px;">Weekly Visibility Report</span>
+                  </td>
+                  <td align="right">
+                    <span style="font-size:10px;color:#a8a29e;">Week of {{ week_date }}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Firm greeting -->
+          <tr>
+            <td style="padding:28px 32px 0 32px;">
+              <p style="margin:0;font-size:13px;color:#57534e;">
+                Report for <strong style="color:#1c1917;">{{ client.firm_name }}</strong>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Score hero -->
+          <tr>
+            <td style="padding:20px 32px 24px 32px;border-bottom:1px solid #e7e5e4;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="vertical-align:top;padding-right:24px;">
+                    <div style="font-size:56px;font-weight:bold;line-height:1;color:#1c1917;">{{ score.overall_score }}</div>
+                    <div style="font-size:12px;color:#78716c;margin-top:2px;">out of 100</div>
+                    {% set s = score.overall_score %}
+                    {% if s >= 70 %}
+                      <div style="margin-top:8px;display:inline-block;padding:3px 10px;background:#dcfce7;color:#166534;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;border-radius:20px;">Excellent</div>
+                    {% elif s >= 40 %}
+                      <div style="margin-top:8px;display:inline-block;padding:3px 10px;background:#dbeafe;color:#1e40af;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;border-radius:20px;">Good</div>
+                    {% elif s >= 15 %}
+                      <div style="margin-top:8px;display:inline-block;padding:3px 10px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;border-radius:20px;">Fair</div>
+                    {% else %}
+                      <div style="margin-top:8px;display:inline-block;padding:3px 10px;background:#fee2e2;color:#991b1b;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;border-radius:20px;">Weak</div>
+                    {% endif %}
+                  </td>
+                  <td style="vertical-align:top;border-left:1px solid #e7e5e4;padding-left:24px;">
+                    {% if previous_score %}
+                      {% set delta = score.overall_score - previous_score.overall_score %}
+                      <div style="font-size:10px;color:#78716c;margin-bottom:4px;">vs. last week</div>
+                      {% if delta > 0 %}
+                        <div style="font-size:28px;font-weight:bold;color:#166534;">+{{ delta }}</div>
+                      {% elif delta < 0 %}
+                        <div style="font-size:28px;font-weight:bold;color:#991b1b;">{{ delta }}</div>
+                      {% else %}
+                        <div style="font-size:28px;font-weight:bold;color:#78716c;">—</div>
+                      {% endif %}
+                    {% else %}
+                      <div style="font-size:10px;color:#78716c;">First report</div>
+                    {% endif %}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Platform scores -->
+          <tr>
+            <td style="padding:20px 32px 24px 32px;border-bottom:1px solid #e7e5e4;">
+              <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#78716c;margin-bottom:12px;">Platform Breakdown</div>
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  {% for platform, platform_score in [("ChatGPT", score.chatgpt_score), ("Perplexity", score.perplexity_score), ("Gemini", score.gemini_score)] %}
+                  <td style="text-align:center;{% if not loop.last %}border-right:1px solid #e7e5e4;{% endif %}padding:0 8px;">
+                    <div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#78716c;margin-bottom:4px;">{{ platform }}</div>
+                    {% if platform_score is not none %}
+                      <div style="font-size:24px;font-weight:bold;color:#1c1917;">{{ platform_score }}</div>
+                    {% else %}
+                      <div style="font-size:13px;color:#a8a29e;">—</div>
+                    {% endif %}
+                  </td>
+                  {% endfor %}
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Score signals -->
+          {% if score.score_components %}
+          <tr>
+            <td style="padding:20px 32px 24px 32px;border-bottom:1px solid #e7e5e4;">
+              <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#78716c;margin-bottom:12px;">Signal Breakdown</div>
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                {% set m  = score.score_components.mention %}
+                {% set p  = score.score_components.position %}
+                {% set se = score.score_components.sentiment %}
+                {% for label, component in [("Mention rate", m), ("Top position rate", p), ("Positive sentiment", se)] %}
+                <tr>
+                  <td style="padding:4px 0;font-size:11px;color:#57534e;">{{ label }}</td>
+                  <td style="padding:4px 0;text-align:right;font-size:11px;font-weight:bold;color:#1c1917;width:40px;">{{ (component.raw * 100) | round(0) | int }}%</td>
+                </tr>
+                {% endfor %}
+              </table>
+            </td>
+          </tr>
+          {% endif %}
+
+          <!-- CTA -->
+          <tr>
+            <td style="padding:24px 32px 28px 32px;text-align:center;">
+              <p style="margin:0 0 16px 0;font-size:12px;color:#57534e;">
+                Your full report (with competitor comparison) is attached as a PDF.
+                View live data on your dashboard.
+              </p>
+              <a href="https://app.legalsignal.com/dashboard"
+                 style="display:inline-block;background-color:#b45309;color:#ffffff;padding:12px 28px;border-radius:6px;font-size:13px;font-weight:bold;text-decoration:none;letter-spacing:0.3px;">
+                View Dashboard
+              </a>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f5f5f4;padding:16px 32px;border-top:1px solid #e7e5e4;">
+              <p style="margin:0;font-size:9px;color:#a8a29e;text-align:center;line-height:1.6;">
+                This report is confidential and prepared for {{ client.firm_name }}.<br/>
+                &copy; {{ week_date[:4] }} LegalSignal &nbsp;|&nbsp;
+                Scores reflect AI platform responses to legal search queries.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /Card -->
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
