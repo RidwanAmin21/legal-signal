@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { createBrowserClient } from "@/lib/supabase-browser";
+import { createClient } from "@/lib/supabase-browser";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface RawMention {
@@ -32,7 +32,7 @@ export default function ReviewQueue({ clientId }: ReviewQueueProps) {
   const { data: items = [], isLoading } = useQuery<ReviewRow[]>({
     queryKey: ["review", clientId],
     queryFn: async () => {
-      const supabase = createBrowserClient();
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("monitoring_responses")
         .select("id, platform, firms_mentioned")

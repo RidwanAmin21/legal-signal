@@ -14,7 +14,7 @@ def render_report(
     output_path: str,
 ) -> str:
     """Generate a PDF report and return the file path."""
-    env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)))
+    env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)), autoescape=True)
     template = env.get_template("weekly_report.html")
 
     html_content = template.render(

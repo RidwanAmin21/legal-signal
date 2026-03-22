@@ -1,13 +1,13 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { createBrowserClient } from "@/lib/supabase-browser";
+import { createClient } from "@/lib/supabase-browser";
 import type { Competitor } from "@/lib/types";
 
 export function useCompetitors(clientId: string) {
   return useQuery<Competitor[]>({
     queryKey: ["competitors", clientId],
     queryFn: async () => {
-      const supabase = createBrowserClient();
+      const supabase = createClient();
 
       // Fetch the 4 most recent scores to aggregate competitor data
       const { data, error } = await supabase

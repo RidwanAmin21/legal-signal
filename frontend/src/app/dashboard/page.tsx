@@ -160,7 +160,7 @@ export default function DashboardPage() {
                   <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 11, fill: "#6B7280" }} tickLine={false} axisLine={false} />
                   <Tooltip
                     contentStyle={{ background: "#14171F", border: "1px solid #1E2230", borderRadius: 6, fontSize: 11 }}
-                    formatter={(v: number) => [v, "Mentions"]}
+                    formatter={(v) => [v, "Mentions"]}
                     cursor={{ fill: "rgba(255,255,255,0.03)" }}
                   />
                   <Bar dataKey="mentions" radius={[0, 3, 3, 0]}>

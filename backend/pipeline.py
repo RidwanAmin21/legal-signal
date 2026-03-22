@@ -237,12 +237,12 @@ def _run_single_client(db, client: dict, providers: dict):
     score_data["competitor_scores"] = competitor_scores
 
     # 5. Store visibility score
-    db.table("visibility_scores").insert({
+    db.table("visibility_scores").upsert({
         "client_id": client_id,
         "run_id": run_id,
         "week_date": date.today().isoformat(),
         **score_data,
-    }).execute()
+    }, on_conflict="client_id,week_date").execute()
 
     # 6. Update run status to completed
     db.table("monitoring_runs").update({
@@ -303,7 +303,7 @@ def _deliver_report(db, client: dict, score_data: dict, run_id: str):
         competitors.sort(key=lambda x: x["score"], reverse=True)
 
         # Render email HTML from digest template
-        env = Environment(loader=FileSystemLoader(str(_TEMPLATE_DIR)))
+        env = Environment(loader=FileSystemLoader(str(_TEMPLATE_DIR)), autoescape=True)
         digest_template = env.get_template("weekly_digest.html")
         email_html = digest_template.render(
             client=client,

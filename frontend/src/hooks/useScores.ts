@@ -1,5 +1,5 @@
 "use client";
-import { createBrowserClient } from "@/lib/supabase-browser";
+import { createClient } from "@/lib/supabase-browser";
 import { useQuery } from "@tanstack/react-query";
 import type { VisibilityScore } from "@/lib/types";
 
@@ -7,7 +7,7 @@ export function useScores(clientId: string) {
   return useQuery<VisibilityScore[]>({
     queryKey: ["scores", clientId],
     queryFn: async () => {
-      const supabase = createBrowserClient();
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("visibility_scores")
         .select("*")

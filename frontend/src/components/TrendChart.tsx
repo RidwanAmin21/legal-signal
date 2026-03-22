@@ -61,7 +61,7 @@ export default function TrendChart({ scores }: TrendChartProps) {
               borderRadius: "6px",
               fontSize: "12px",
             }}
-            formatter={(value: number) => [value, "Score"]}
+            formatter={(value) => [value, "Score"]}
           />
           <Area
             type="monotone"
