@@ -18,7 +18,7 @@ interface TrendChartProps {
 export default function TrendChart({ scores }: TrendChartProps) {
   if (!scores || scores.length === 0) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-xl border border-border bg-card">
+      <div className="flex h-48 items-center justify-center rounded-lg border border-border bg-card">
         <p className="text-sm text-muted">No trend data yet</p>
       </div>
     );
@@ -30,47 +30,54 @@ export default function TrendChart({ scores }: TrendChartProps) {
     score: s.overall_score,
   }));
 
+  // Token values — must be hex for Recharts (CSS variables aren't resolved in SVG attributes)
+  const ACCENT   = "#C9A84C"; // --accent
+  const BORDER   = "#1E2230"; // --border
+  const BG_CARD  = "#14171F"; // --bg-card
+  const MUTED    = "#6B7280"; // --muted
+
   return (
-    <div className="rounded-xl border border-border bg-card p-6">
+    <div className="rounded-lg border border-border bg-card p-6">
       <p className="mb-4 text-sm font-medium text-muted">Score Trend (12 weeks)</p>
       <ResponsiveContainer width="100%" height={200}>
         <AreaChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#b45309" stopOpacity={0.15} />
-              <stop offset="95%" stopColor="#b45309" stopOpacity={0} />
+              <stop offset="5%"  stopColor={ACCENT} stopOpacity={0.2} />
+              <stop offset="95%" stopColor={ACCENT} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" />
+          <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
           <XAxis
             dataKey="week"
-            tick={{ fontSize: 10, fill: "#78716c" }}
+            tick={{ fontSize: 10, fill: MUTED }}
             tickLine={false}
             axisLine={false}
           />
           <YAxis
             domain={[0, 100]}
-            tick={{ fontSize: 10, fill: "#78716c" }}
+            tick={{ fontSize: 10, fill: MUTED }}
             tickLine={false}
             axisLine={false}
           />
           <Tooltip
             contentStyle={{
-              background: "#ffffff",
-              border: "1px solid #e7e5e4",
+              background: BG_CARD,
+              border: `1px solid ${BORDER}`,
               borderRadius: "6px",
               fontSize: "12px",
+              color: "#FFFFFF",
             }}
             formatter={(value) => [value, "Score"]}
           />
           <Area
             type="monotone"
             dataKey="score"
-            stroke="#b45309"
+            stroke={ACCENT}
             strokeWidth={2}
             fill="url(#scoreGradient)"
             dot={false}
-            activeDot={{ r: 4, fill: "#b45309" }}
+            activeDot={{ r: 4, fill: ACCENT }}
           />
         </AreaChart>
       </ResponsiveContainer>

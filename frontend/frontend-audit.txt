@@ -1,0 +1,23 @@
+  ┌────────────┬────────────────────────────────────────────────────────────────────────────────────────┐
+  │  Command   │                                    Issues Addressed                                    │
+  ├────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ /normalize │ C-1 (TrendChart colors), H-1 (ScoreCard tokens), H-2 (getScoreBand tokens) — 3 theming │
+  │            │  issues                                                                                │
+  ├────────────┼────────────────────────────────────────────────────────────────────────────────────────┤  
+  │            │ C-2 (toggle ARIA), C-3 (keyboard rows), H-5 (form labels), H-6 (tab ARIA), H-7 (icon   │
+  │ /harden    │ labels), H-8 (progress bar ARIA), H-9 (reduced motion), M-6 (delta ARIA), M-8 (touch   │  
+  │            │ targets), L-4 (forgot password) — 10 resilience/accessibility issues                   │
+  ├────────────┼────────────────────────────────────────────────────────────────────────────────────────┤  
+  │ /adapt     │ H-3 (table overflow), H-4 (mobile sidebar), L-2 (h-screen) — 3 responsive issues       │
+  ├────────────┼────────────────────────────────────────────────────────────────────────────────────────┤  
+  │ /arrange   │ M-3 (identical card grids), M-2 (dashboard hero layout) — 2 layout issues              │
+  ├────────────┼────────────────────────────────────────────────────────────────────────────────────────┤  
+  │ /clarify   │ M-7 (redundant copy), M-1 (score label positions) — 2 UX writing issues                │
+  ├────────────┼────────────────────────────────────────────────────────────────────────────────────────┤  
+  │ /typeset   │ M-4 (JetBrains Mono misuse) — 1 typography issue                                       │
+  ├────────────┼────────────────────────────────────────────────────────────────────────────────────────┤  
+  │ /optimize  │ M-5 (dead CSS), L-3 (FadeSection flash) — 2 performance issues                         │
+  ├────────────┼────────────────────────────────────────────────────────────────────────────────────────┤  
+  │ /critique  │ M-2 (score hero anti-pattern) — strategic design review                                │
+  ├────────────┼────────────────────────────────────────────────────────────────────────────────────────┤  
+  │ /polish    │ L-5 (inline margin hacks) — code quality cleanup                                       │

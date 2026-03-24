@@ -13,7 +13,7 @@ export default function ScoreCard({ current, previous }: ScoreCardProps) {
   const delta = previous ? current.overall_score - previous.overall_score : null;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-8">
+    <div className="rounded-lg border border-border bg-card p-8">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-muted">Visibility Score</p>
@@ -36,9 +36,9 @@ export default function ScoreCard({ current, previous }: ScoreCardProps) {
             <p
               className={`mt-1 font-display text-2xl font-semibold ${
                 delta > 0
-                  ? "text-green-600"
+                  ? "text-success"
                   : delta < 0
-                  ? "text-red-600"
+                  ? "text-error"
                   : "text-muted"
               }`}
             >

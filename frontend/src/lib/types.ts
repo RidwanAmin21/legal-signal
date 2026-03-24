@@ -63,8 +63,8 @@ export function getScoreBand(score: number): {
   color: string;
   bgColor: string;
 } {
-  if (score >= 70) return { label: "Excellent", color: "text-emerald-400", bgColor: "bg-emerald-400/10" };
-  if (score >= 40) return { label: "Good",      color: "text-blue-400",    bgColor: "bg-blue-400/10"    };
-  if (score >= 15) return { label: "Fair",       color: "text-amber-400",   bgColor: "bg-amber-400/10"   };
-  return               { label: "Weak",       color: "text-red-400",     bgColor: "bg-red-400/10"     };
+  if (score >= 70) return { label: "Excellent", color: "text-success", bgColor: "bg-success/10" };
+  if (score >= 40) return { label: "Good",      color: "text-info",    bgColor: "bg-info/10"    };
+  if (score >= 15) return { label: "Fair",       color: "text-warning", bgColor: "bg-warning/10" };
+  return               { label: "Weak",       color: "text-error",   bgColor: "bg-error/10"   };
 }

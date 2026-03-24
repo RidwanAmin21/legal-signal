@@ -24,6 +24,7 @@ const config: Config = {
         success:       "var(--success)",
         error:         "var(--error)",
         warning:       "var(--warning)",
+        info:          "var(--info)",
       },
       fontFamily: {
         display: ["var(--font-fraunces)", "Georgia", "serif"],

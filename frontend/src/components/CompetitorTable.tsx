@@ -25,14 +25,14 @@ export default function CompetitorTable({
 
   if (allFirms.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted">
+      <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted">
         No competitor data yet. Run the pipeline to populate this table.
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-background/50">
@@ -57,7 +57,7 @@ export default function CompetitorTable({
               <tr
                 key={firm.canonical_name}
                 className={`border-b border-border last:border-0 ${
-                  firm.isClient ? "bg-amber-50/60" : "hover:bg-background/40"
+                  firm.isClient ? "bg-accent/[0.04]" : "hover:bg-white/[0.02]"
                 }`}
               >
                 <td className="px-4 py-3 text-muted font-medium">

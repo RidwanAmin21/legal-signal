@@ -22,7 +22,7 @@ export default function PlatformBreakdown({ current, previous }: PlatformBreakdo
           score !== null && prevScore !== null ? score - prevScore : null;
 
         return (
-          <div key={key} className="rounded-xl border border-border bg-card p-5">
+          <div key={key} className="rounded-lg border border-border bg-card p-5">
             <p className="text-xs font-medium uppercase tracking-widest text-muted">
               {label}
             </p>
@@ -35,9 +35,9 @@ export default function PlatformBreakdown({ current, previous }: PlatformBreakdo
                   <p
                     className={`mt-1 text-xs font-medium ${
                       delta > 0
-                        ? "text-green-600"
+                        ? "text-success"
                         : delta < 0
-                        ? "text-red-600"
+                        ? "text-error"
                         : "text-muted"
                     }`}
                   >

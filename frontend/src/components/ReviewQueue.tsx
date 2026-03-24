@@ -132,7 +132,7 @@ export default function ReviewQueue({ clientId }: ReviewQueueProps) {
 
   if (isLoading) {
     return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted">
+      <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted">
         Loading review queue...
       </div>
     );
@@ -140,14 +140,14 @@ export default function ReviewQueue({ clientId }: ReviewQueueProps) {
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted">
+      <div className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted">
         No items to review.
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-background/50">
@@ -195,10 +195,10 @@ export default function ReviewQueue({ clientId }: ReviewQueueProps) {
                   <span
                     className={`text-xs font-semibold ${
                       item.confidence >= 0.85
-                        ? "text-green-600"
+                        ? "text-success"
                         : item.confidence >= 0.65
-                        ? "text-amber-600"
-                        : "text-red-600"
+                        ? "text-warning"
+                        : "text-error"
                     }`}
                   >
                     {(item.confidence * 100).toFixed(0)}%
@@ -214,14 +214,14 @@ export default function ReviewQueue({ clientId }: ReviewQueueProps) {
                     <button
                       onClick={() => handleApprove(item)}
                       disabled={busy || !effectiveCanonical}
-                      className="rounded px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-40 transition-colors"
+                      className="rounded px-2.5 py-1 text-xs font-medium text-success bg-success/10 hover:bg-success/20 disabled:opacity-40 transition-colors"
                     >
                       {busy ? "..." : "Approve"}
                     </button>
                     <button
                       onClick={() => handleReject(item)}
                       disabled={busy}
-                      className="rounded px-2.5 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 disabled:opacity-40 transition-colors"
+                      className="rounded px-2.5 py-1 text-xs font-medium text-error bg-error/10 hover:bg-error/20 disabled:opacity-40 transition-colors"
                     >
                       {busy ? "..." : "Reject"}
                     </button>
