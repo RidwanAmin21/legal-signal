@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase-browser";
 
 const NAV = [
   {
@@ -70,6 +72,32 @@ interface SidebarProps {
 
 export default function Sidebar({ firmName = "LegalSignal" }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [userEmail, setUserEmail] = useState("");
+  const [userInitials, setUserInitials] = useState("–");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      const user = data.user;
+      if (!user) return;
+      const email = user.email ?? "";
+      const fullName = user.user_metadata?.full_name as string | undefined;
+      setUserEmail(fullName || email);
+      if (fullName) {
+        const parts = fullName.trim().split(" ");
+        setUserInitials((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? ""));
+      } else {
+        setUserInitials(email[0]?.toUpperCase() ?? "–");
+      }
+    });
+  }, []);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-56 flex-col bg-bg-secondary border-r border-border">
@@ -113,14 +141,24 @@ export default function Sidebar({ firmName = "LegalSignal" }: SidebarProps) {
 
       {/* Bottom user area */}
       <div className="border-t border-border px-5 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/20 text-xs font-semibold text-accent">
-            JD
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-accent/20 text-xs font-semibold text-accent uppercase">
+              {userInitials}
+            </div>
+            <p className="truncate text-xs text-muted">{userEmail || "…"}</p>
           </div>
-          <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-foreground">John D.</p>
-            <p className="truncate text-xs text-muted">Admin</p>
-          </div>
+          <button
+            onClick={handleLogout}
+            title="Sign out"
+            className="flex-shrink-0 text-muted hover:text-foreground transition-colors"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
         </div>
       </div>
     </aside>

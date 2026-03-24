@@ -28,6 +28,7 @@ interface ReviewQueueProps {
 export default function ReviewQueue({ clientId }: ReviewQueueProps) {
   const queryClient = useQueryClient();
   const [resolving, setResolving] = useState<string | null>(null);
+  const [customNames, setCustomNames] = useState<Record<string, string>>({});
 
   const { data: items = [], isLoading } = useQuery<ReviewRow[]>({
     queryKey: ["review", clientId],
@@ -100,14 +101,16 @@ export default function ReviewQueue({ clientId }: ReviewQueueProps) {
 
   const handleApprove = (item: ReviewRow) => {
     const key = `${item.responseId}-${item.mentionIndex}`;
+    const effectiveCanonical = customNames[key]?.trim() || item.suggestedCanonical;
+    if (!effectiveCanonical) return;
     setResolving(key);
     resolve.mutate(
       {
         responseId: item.responseId,
         mentionIndex: item.mentionIndex,
         resolution: "approved",
-        canonicalName: item.suggestedCanonical,
-        addAlias: item.firmName !== item.suggestedCanonical ? item.firmName : undefined,
+        canonicalName: effectiveCanonical,
+        addAlias: item.firmName !== effectiveCanonical ? item.firmName : undefined,
       },
       { onSettled: () => setResolving(null) }
     );
@@ -169,12 +172,23 @@ export default function ReviewQueue({ clientId }: ReviewQueueProps) {
           {items.map((item) => {
             const key = `${item.responseId}-${item.mentionIndex}`;
             const busy = resolving === key;
+            const effectiveCanonical = customNames[key]?.trim() || item.suggestedCanonical;
             return (
               <tr key={key} className="border-b border-border last:border-0 hover:bg-background/40">
                 <td className="px-4 py-3 text-foreground font-medium">{item.firmName}</td>
                 <td className="px-4 py-3 text-muted">
-                  {item.suggestedCanonical ?? (
-                    <span className="italic text-muted/60">No match found</span>
+                  {item.suggestedCanonical ? (
+                    item.suggestedCanonical
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Type canonical name…"
+                      value={customNames[key] ?? ""}
+                      onChange={(e) =>
+                        setCustomNames((prev) => ({ ...prev, [key]: e.target.value }))
+                      }
+                      className="w-48 rounded border border-border bg-bg-input px-2 py-1 text-xs text-foreground placeholder:text-muted/50 focus:border-accent focus:outline-none"
+                    />
                   )}
                 </td>
                 <td className="px-4 py-3">
@@ -199,7 +213,7 @@ export default function ReviewQueue({ clientId }: ReviewQueueProps) {
                   <div className="flex justify-end gap-2">
                     <button
                       onClick={() => handleApprove(item)}
-                      disabled={busy || !item.suggestedCanonical}
+                      disabled={busy || !effectiveCanonical}
                       className="rounded px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 disabled:opacity-40 transition-colors"
                     >
                       {busy ? "..." : "Approve"}

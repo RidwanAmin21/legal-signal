@@ -101,10 +101,6 @@ export async function POST(req: NextRequest) {
   }
 
   // 10. Mutate and write back
-  // Guard against concurrent edits: only update if array length hasn't changed
-  // (a concurrent write would have changed the array, making our index stale)
-  const originalLength = mentions.length;
-
   mentions[mention_index] = {
     ...mentions[mention_index],
     canonical_name: canonical_name ?? null,
@@ -115,10 +111,8 @@ export async function POST(req: NextRequest) {
   const { error: updateError } = await supabase
     .from("monitoring_responses")
     .update({ firms_mentioned: mentions })
-    .eq("id", response_id)
-    .filter("firms_mentioned", "cs", JSON.stringify([]).slice(0, 0)); // no-op filter anchor
+    .eq("id", response_id);
 
-  // Simpler: just catch update errors and surface them clearly
   if (updateError) {
     return NextResponse.json(
       { error: "Update failed — the record may have been modified concurrently. Refresh and try again." },

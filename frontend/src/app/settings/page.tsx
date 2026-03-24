@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/DashboardLayout";
-
-const FIRM = "Mullen & Mullen Law Firm";
+import { useClientId } from "@/hooks/useClientId";
 
 type Tab = "Profile" | "Firm Settings" | "Billing" | "Notifications";
 const TABS: Tab[] = ["Profile", "Firm Settings", "Billing", "Notifications"];
@@ -12,45 +12,78 @@ const PRACTICE_AREAS = [
   "Estate Planning", "Business Law", "Employment Law", "Real Estate",
 ];
 
-const METROS = [
-  "Dallas, TX", "Houston, TX", "Austin, TX", "San Antonio, TX",
-  "Los Angeles, CA", "Chicago, IL", "New York, NY", "Miami, FL",
-];
-
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("Profile");
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const { clientId } = useClientId();
+  const queryClient = useQueryClient();
 
-  // Profile state
-  const [name, setName] = useState("Shane Mullen");
-  const [email, setEmail] = useState("shane@mullenandmullen.com");
-  const [role, setRole] = useState("Managing Partner");
+  const { data: client } = useQuery({
+    queryKey: ["client"],
+    queryFn: async () => {
+      const res = await fetch("/api/client");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!clientId,
+  });
 
-  // Firm state
-  const [firmName, setFirmName] = useState("Mullen & Mullen Law Firm");
-  const [website, setWebsite] = useState("https://mullenandmullen.com");
-  const [metro, setMetro] = useState("Dallas, TX");
-  const [practiceAreas, setPracticeAreas] = useState<string[]>(["Personal Injury"]);
-  const [competitors, setCompetitors] = useState(["Thompson Law", "Angel Reyes & Associates", "The Callahan Law Firm"]);
+  const firmName = client?.firm_name ?? "Your Firm";
 
-  // Notifications state
+  // Firm settings state — seeded from real client data
+  const [firmNameInput, setFirmNameInput] = useState("");
+  const [website, setWebsite] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [practiceAreas, setPracticeAreas] = useState<string[]>([]);
+
+  // Notifications state (local only — no backend yet)
   const [emailReports, setEmailReports] = useState(true);
   const [scoreAlerts, setScoreAlerts] = useState(true);
   const [contentReady, setContentReady] = useState(true);
   const [competitorAlerts, setCompetitorAlerts] = useState(false);
 
-  const [saved, setSaved] = useState(false);
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  };
+  useEffect(() => {
+    if (client) {
+      setFirmNameInput(client.firm_name ?? "");
+      setWebsite(client.primary_domain ?? "");
+      setContactEmail(client.contact_email ?? "");
+      setPracticeAreas(client.practice_areas ?? []);
+    }
+  }, [client]);
 
   const toggleArea = (area: string) =>
     setPracticeAreas((prev) =>
       prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area]
     );
 
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (tab === "Firm Settings") {
+        const res = await fetch("/api/settings/profile", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            firm_name: firmNameInput,
+            primary_domain: website,
+            contact_email: contactEmail,
+            practice_areas: practiceAreas,
+          }),
+        });
+        if (res.ok) {
+          queryClient.invalidateQueries({ queryKey: ["client"] });
+        }
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <DashboardLayout firmName={FIRM}>
+    <DashboardLayout firmName={firmName}>
       <div className="px-8 py-8">
 
         {/* Header */}
@@ -83,54 +116,34 @@ export default function SettingsPage() {
           {tab === "Profile" && (
             <div className="space-y-6">
               <div className="rounded-lg border border-border bg-bg-card p-6">
-                <h2 className="mb-5 text-sm font-medium text-foreground">Personal Information</h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-secondary">Full Name</label>
-                    <input
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="input-gold h-10 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground"
-                    />
+                <h2 className="mb-5 text-sm font-medium text-foreground">Account</h2>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-border pb-3">
+                    <span className="text-xs text-muted">Email</span>
+                    <span className="text-xs text-secondary">{client?.contact_email ?? "—"}</span>
                   </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-secondary">Email Address</label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="input-gold h-10 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground"
-                    />
+                  <div className="flex items-center justify-between border-b border-border pb-3">
+                    <span className="text-xs text-muted">Firm</span>
+                    <span className="text-xs text-secondary">{firmName}</span>
                   </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-secondary">Role</label>
-                    <input
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      className="input-gold h-10 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground"
-                    />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted">Plan</span>
+                    <span className="text-xs font-medium text-accent capitalize">{client?.tier ?? "—"}</span>
                   </div>
                 </div>
               </div>
-
               <div className="rounded-lg border border-border bg-bg-card p-6">
                 <h2 className="mb-5 text-sm font-medium text-foreground">Change Password</h2>
                 <div className="space-y-4">
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-secondary">Current Password</label>
-                    <input
-                      type="password"
-                      placeholder="••••••••"
-                      className="input-gold h-10 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground placeholder:text-muted"
-                    />
+                    <input type="password" placeholder="••••••••"
+                      className="input-gold h-10 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground placeholder:text-muted" />
                   </div>
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-secondary">New Password</label>
-                    <input
-                      type="password"
-                      placeholder="Min. 8 characters"
-                      className="input-gold h-10 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground placeholder:text-muted"
-                    />
+                    <input type="password" placeholder="Min. 8 characters"
+                      className="input-gold h-10 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground placeholder:text-muted" />
                   </div>
                 </div>
               </div>
@@ -145,29 +158,18 @@ export default function SettingsPage() {
                 <div className="space-y-4">
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-secondary">Firm Name</label>
-                    <input
-                      value={firmName}
-                      onChange={(e) => setFirmName(e.target.value)}
-                      className="input-gold h-10 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground"
-                    />
+                    <input value={firmNameInput} onChange={(e) => setFirmNameInput(e.target.value)}
+                      className="input-gold h-10 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground" />
                   </div>
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-secondary">Website URL</label>
-                    <input
-                      value={website}
-                      onChange={(e) => setWebsite(e.target.value)}
-                      className="input-gold h-10 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground"
-                    />
+                    <input value={website} onChange={(e) => setWebsite(e.target.value)}
+                      className="input-gold h-10 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground" />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-secondary">Primary Metro</label>
-                    <select
-                      value={metro}
-                      onChange={(e) => setMetro(e.target.value)}
-                      className="input-gold h-10 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground"
-                    >
-                      {METROS.map((m) => <option key={m} value={m}>{m}</option>)}
-                    </select>
+                    <label className="mb-1.5 block text-xs font-medium text-secondary">Contact Email</label>
+                    <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)}
+                      className="input-gold h-10 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground" />
                   </div>
                 </div>
               </div>
@@ -177,41 +179,15 @@ export default function SettingsPage() {
                 <p className="mb-4 text-xs text-muted">Select the areas your firm handles — we build audit queries around these.</p>
                 <div className="flex flex-wrap gap-2">
                   {PRACTICE_AREAS.map((area) => (
-                    <button
-                      key={area}
-                      onClick={() => toggleArea(area)}
+                    <button key={area} onClick={() => toggleArea(area)}
                       className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
                         practiceAreas.includes(area)
                           ? "border-accent bg-accent/10 text-accent"
                           : "border-border text-muted hover:border-secondary hover:text-secondary"
-                      }`}
-                    >
+                      }`}>
                       {area}
                     </button>
                   ))}
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-border bg-bg-card p-6">
-                <h2 className="mb-2 text-sm font-medium text-foreground">Tracked Competitors</h2>
-                <p className="mb-4 text-xs text-muted">Up to 5 firms. We track whether AI recommends them over you.</p>
-                <div className="space-y-2">
-                  {competitors.map((c) => (
-                    <div key={c} className="flex items-center justify-between rounded-md border border-border bg-bg-input px-3 py-2">
-                      <span className="text-sm text-secondary">{c}</span>
-                      <button
-                        onClick={() => setCompetitors(competitors.filter((x) => x !== c))}
-                        className="text-muted hover:text-error transition-colors text-xs"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                  {competitors.length < 5 && (
-                    <button className="mt-1 text-xs text-accent hover:text-accent-muted transition-colors">
-                      + Add competitor
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
@@ -229,52 +205,9 @@ export default function SettingsPage() {
                   <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">Active</span>
                 </div>
                 <div className="mt-5 rounded-lg border border-accent/20 bg-accent/5 p-4">
-                  <div className="flex items-end gap-1">
-                    <span className="font-display text-3xl font-semibold text-foreground">$200</span>
-                    <span className="mb-1 text-sm text-muted">/month</span>
-                  </div>
-                  <p className="mt-1 text-sm text-secondary">LegalSignal — Solo Plan</p>
-                  <p className="mt-3 text-xs text-muted">Next billing date: Apr 15, 2026</p>
+                  <p className="text-sm text-secondary capitalize">LegalSignal — {client?.tier ?? "Solo"} Plan</p>
+                  <p className="mt-2 text-xs text-muted">Billing managed separately. Contact support to upgrade or cancel.</p>
                 </div>
-                <div className="mt-4 space-y-2">
-                  {[
-                    "Weekly AI visibility audit",
-                    "Bar-compliant content generation",
-                    "Competitor tracking (up to 5)",
-                    "PDF report + weekly email",
-                    "Source URL extraction",
-                  ].map((f) => (
-                    <div key={f} className="flex items-center gap-2 text-xs text-secondary">
-                      <span className="text-success">✓</span>
-                      {f}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-border bg-bg-card p-6">
-                <h2 className="mb-4 text-sm font-medium text-foreground">Payment Method</h2>
-                <div className="flex items-center justify-between rounded-md border border-border bg-bg-input px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <span className="rounded bg-border px-2 py-1 text-xs font-medium text-foreground">VISA</span>
-                    <span className="text-sm text-secondary">•••• •••• •••• 4242</span>
-                  </div>
-                  <span className="text-xs text-muted">Expires 04/28</span>
-                </div>
-                <button className="mt-3 text-xs text-accent hover:text-accent-muted transition-colors">
-                  Update payment method
-                </button>
-              </div>
-
-              <div className="rounded-lg border border-error/20 bg-bg-card p-6">
-                <h2 className="mb-2 text-sm font-medium text-foreground">Cancel Subscription</h2>
-                <p className="mb-4 text-xs text-muted leading-relaxed">
-                  Canceling stops future billing and audits at the end of your current billing period.
-                  Your data is retained for 30 days.
-                </p>
-                <button className="rounded border border-error/30 px-4 py-2 text-xs text-error hover:border-error hover:bg-error/5 transition-colors">
-                  Cancel subscription
-                </button>
               </div>
             </div>
           )}
@@ -285,51 +218,19 @@ export default function SettingsPage() {
               <h2 className="mb-5 text-sm font-medium text-foreground">Email Notifications</h2>
               <div className="space-y-4">
                 {[
-                  {
-                    id: "reports",
-                    label: "Weekly audit report",
-                    sub: "Receive your full PDF report every Monday morning.",
-                    value: emailReports,
-                    set: setEmailReports,
-                  },
-                  {
-                    id: "score",
-                    label: "Score change alerts",
-                    sub: "Notify me when my visibility score changes by 5+ points.",
-                    value: scoreAlerts,
-                    set: setScoreAlerts,
-                  },
-                  {
-                    id: "content",
-                    label: "Content ready for review",
-                    sub: "Alert me when new AI-generated content is pending approval.",
-                    value: contentReady,
-                    set: setContentReady,
-                  },
-                  {
-                    id: "competitor",
-                    label: "Competitor score changes",
-                    sub: "Notify me when a tracked competitor's score changes significantly.",
-                    value: competitorAlerts,
-                    set: setCompetitorAlerts,
-                  },
+                  { id: "reports", label: "Weekly audit report", sub: "Receive your full PDF report every Monday morning.", value: emailReports, set: setEmailReports },
+                  { id: "score",   label: "Score change alerts",  sub: "Notify me when my visibility score changes by 5+ points.", value: scoreAlerts, set: setScoreAlerts },
+                  { id: "content", label: "Content ready for review", sub: "Alert me when new AI-generated content is pending approval.", value: contentReady, set: setContentReady },
+                  { id: "comp",    label: "Competitor score changes", sub: "Notify me when a tracked competitor's score changes significantly.", value: competitorAlerts, set: setCompetitorAlerts },
                 ].map(({ id, label, sub, value, set }) => (
                   <div key={id} className="flex items-start justify-between gap-4 border-b border-border pb-4 last:border-0 last:pb-0">
                     <div>
                       <p className="text-sm font-medium text-foreground">{label}</p>
                       <p className="mt-0.5 text-xs text-muted">{sub}</p>
                     </div>
-                    <button
-                      onClick={() => set(!value)}
-                      className={`relative flex-shrink-0 h-5 w-9 rounded-full transition-colors ${
-                        value ? "bg-accent" : "bg-border"
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-background transition-transform ${
-                          value ? "translate-x-4" : "translate-x-0.5"
-                        }`}
-                      />
+                    <button onClick={() => set(!value)}
+                      className={`relative flex-shrink-0 h-5 w-9 rounded-full transition-colors ${value ? "bg-accent" : "bg-border"}`}>
+                      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-background transition-transform ${value ? "translate-x-4" : "translate-x-0.5"}`} />
                     </button>
                   </div>
                 ))}
@@ -339,15 +240,11 @@ export default function SettingsPage() {
 
           {/* Save button */}
           <div className="mt-6 flex items-center gap-3">
-            <button
-              onClick={handleSave}
-              className="rounded bg-accent px-5 py-2.5 text-sm font-semibold text-background hover:bg-accent-muted transition-colors"
-            >
-              Save Changes
+            <button onClick={handleSave} disabled={saving}
+              className="rounded bg-accent px-5 py-2.5 text-sm font-semibold text-background hover:bg-accent-muted transition-colors disabled:opacity-60">
+              {saving ? "Saving…" : "Save Changes"}
             </button>
-            {saved && (
-              <span className="text-xs text-success">✓ Changes saved</span>
-            )}
+            {saved && <span className="text-xs text-success">✓ Changes saved</span>}
           </div>
         </div>
       </div>

@@ -224,7 +224,7 @@ def _run_single_client(db, client: dict, providers: dict):
     # 4. Compute scores
     all_responses = (
         db.table("monitoring_responses")
-        .select("firms_mentioned, platform, prompt_id")
+        .select("firms_mentioned, platform, prompt_id, citations")
         .eq("run_id", run_id)
         .execute()
     )
@@ -234,7 +234,10 @@ def _run_single_client(db, client: dict, providers: dict):
     all_competitor_mentions = {}
     total_prompt_count = len(prompts) * len(providers)
 
+    perplexity_responses = []
     for resp in all_responses.data or []:
+        if resp["platform"] == "perplexity":
+            perplexity_responses.append(resp)
         for mention in resp.get("firms_mentioned") or []:
             canonical = mention.get("canonical_name")
             if not canonical:
@@ -253,7 +256,13 @@ def _run_single_client(db, client: dict, providers: dict):
                     all_competitor_mentions[canonical] = []
                 all_competitor_mentions[canonical].append(mention_record)
 
-    score_data = compute_visibility_score(client_mentions, total_prompt_count)
+    score_data = compute_visibility_score(
+        client_mentions,
+        total_prompt_count,
+        perplexity_responses=perplexity_responses,
+        client=client,
+        registry=registry,
+    )
 
     for platform in providers:
         platform_prompts = len(prompts)
