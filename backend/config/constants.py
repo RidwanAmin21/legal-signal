@@ -5,12 +5,27 @@ SENTIMENT_WEIGHT = 20
 
 # ── Composite score weights (applied when Perplexity citations are available) ─
 # mention_signal (0-100) × 50% + source_signal (0-100) × 40% + site_readiness × 10%
-COMPOSITE_MENTION_WEIGHT = 50
-COMPOSITE_SOURCE_WEIGHT = 40
-COMPOSITE_SITE_WEIGHT = 10
+MENTION_SIGNAL_WEIGHT = 0.50
+SOURCE_SIGNAL_WEIGHT  = 0.40
+SITE_READINESS_WEIGHT = 0.10
 
 # Hardcoded until the site-audit module ships
 SITE_READINESS_DEFAULT = 50
+
+# ── Source categorization domains ─────────────────────────────────────────────
+DIRECTORY_DOMAINS: list[str] = [
+    "avvo.com", "justia.com", "superlawyers.com",
+    "martindale.com", "lawyers.com", "findlaw.com", "nolo.com",
+]
+LEGAL_RESOURCE_DOMAINS: list[str] = [
+    "eloa.org", "topverdict.com", "ontoplist.com", "bestlawfirms.usnews.com",
+]
+EDITORIAL_DOMAINS: list[str] = [
+    "forbes.com", "usnews.com", "newsweek.com", "bloomberg.com",
+]
+REVIEW_DOMAINS: list[str] = [
+    "yelp.com", "bbb.org",
+]
 
 # ── Score bands ───────────────────────────────────────────────────────────────
 SCORE_BANDS = {

@@ -1,7 +1,7 @@
 """Visibility score computation from resolved mention data."""
 from config.constants import (
     MENTION_WEIGHT, POSITION_WEIGHT, SENTIMENT_WEIGHT,
-    COMPOSITE_MENTION_WEIGHT, COMPOSITE_SOURCE_WEIGHT, COMPOSITE_SITE_WEIGHT,
+    MENTION_SIGNAL_WEIGHT, SOURCE_SIGNAL_WEIGHT, SITE_READINESS_WEIGHT,
     SITE_READINESS_DEFAULT,
 )
 from scoring.source_signal import compute_source_score
@@ -110,14 +110,16 @@ def compute_visibility_score(
             registry,
         )
 
+        # _empty_source_score() returns 0 (not None), so this block is a safety
+        # net for any future code path that explicitly signals "no data".
         if source_result["source_score"] is not None:
             source_signal = source_result["source_score"]
             site_readiness = SITE_READINESS_DEFAULT
 
             overall = int(
-                mention_signal * (COMPOSITE_MENTION_WEIGHT / 100)
-                + source_signal * (COMPOSITE_SOURCE_WEIGHT / 100)
-                + site_readiness * (COMPOSITE_SITE_WEIGHT / 100)
+                mention_signal * MENTION_SIGNAL_WEIGHT
+                + source_signal * SOURCE_SIGNAL_WEIGHT
+                + site_readiness * SITE_READINESS_WEIGHT
             )
             overall = max(0, min(100, overall))
 
@@ -125,16 +127,22 @@ def compute_visibility_score(
                 **mention_components,
                 "source_signal": {
                     "raw": source_signal,
-                    "weight": COMPOSITE_SOURCE_WEIGHT,
-                    "contribution": round(source_signal * (COMPOSITE_SOURCE_WEIGHT / 100), 2),
-                    "breakdown": source_result["components"],
+                    "weight": SOURCE_SIGNAL_WEIGHT,
+                    "contribution": round(source_signal * SOURCE_SIGNAL_WEIGHT, 2),
+                    "sub_scores": source_result["sub_scores"],
+                    "client_domain_cited": source_result["client_domain_cited"],
+                    "client_citation_count": source_result["client_citation_count"],
+                    "competitor_domains_cited": source_result["competitor_domains_cited"],
+                    "missing_directories": source_result["missing_directories"],
+                    "top_sources": source_result["top_sources"],
+                    "recommendations": source_result["recommendations"],
                     "total_citations": source_result["total_citations"],
                     "unique_domains": source_result["unique_domains"],
                 },
                 "site_readiness": {
                     "raw": site_readiness,
-                    "weight": COMPOSITE_SITE_WEIGHT,
-                    "contribution": round(site_readiness * (COMPOSITE_SITE_WEIGHT / 100), 2),
+                    "weight": SITE_READINESS_WEIGHT,
+                    "contribution": round(site_readiness * SITE_READINESS_WEIGHT, 2),
                     "note": "hardcoded pending site-audit module",
                 },
                 "formula": "composite",
@@ -160,6 +168,89 @@ def compute_visibility_score(
             "formula": "legacy",
         },
     }
+
+
+def build_db_score_components(score_data: dict) -> dict:
+    """Convert compute_visibility_score output into the clean shape stored in visibility_scores.
+
+    Stored shape:
+        {
+            "mention_signal":  {"weight": 0.50, "raw": 37, "weighted": 18.5, "reason": "..."},
+            "source_signal":   {"weight": 0.40, "raw": 22, "weighted": 8.8,  "reason": "...", ...},
+            "site_readiness":  {"weight": 0.10, "raw": 50, "weighted": 5.0,  "reason": "..."},
+            "overall": 32.3,
+            "formula": "composite" | "legacy",
+        }
+    """
+    components = score_data.get("score_components", {})
+    formula = components.get("formula", "legacy")
+    overall = score_data["overall_score"]
+    mention_rate = score_data.get("mention_rate", 0.0)
+
+    # ── Mention signal ────────────────────────────────────────────────────────
+    mention_raw = (
+        components.get("mention_signal_subtotal", overall)
+        if formula == "composite"
+        else overall
+    )
+    db = {
+        "mention_signal": {
+            "weight": MENTION_SIGNAL_WEIGHT,
+            "raw": mention_raw,
+            "weighted": round(mention_raw * MENTION_SIGNAL_WEIGHT, 2),
+            "reason": f"Mentioned in {mention_rate * 100:.0f}% of queries",
+        },
+        "overall": float(overall),
+        "formula": formula,
+    }
+
+    # ── Source signal (composite path) ────────────────────────────────────────
+    if formula == "composite" and "source_signal" in components:
+        ss = components["source_signal"]
+        source_raw = ss["raw"]
+
+        reason_parts: list[str] = []
+        if ss.get("client_domain_cited"):
+            reason_parts.append(f"Website cited in {ss['client_citation_count']} response(s)")
+        else:
+            reason_parts.append("Website never cited by Perplexity")
+        missing = ss.get("missing_directories", [])
+        if missing:
+            reason_parts.append(f"missing from {len(missing)} key directories")
+
+        db["source_signal"] = {
+            "weight": SOURCE_SIGNAL_WEIGHT,
+            "raw": source_raw,
+            "weighted": round(source_raw * SOURCE_SIGNAL_WEIGHT, 2),
+            "reason": "; ".join(reason_parts),
+            "client_domain_cited": ss.get("client_domain_cited"),
+            "client_citation_count": ss.get("client_citation_count"),
+            "missing_directories": missing,
+            "competitor_domains_cited": ss.get("competitor_domains_cited", []),
+            "top_sources": ss.get("top_sources", []),
+            "recommendations": ss.get("recommendations", []),
+            "sub_scores": ss.get("sub_scores", {}),
+        }
+    else:
+        # Legacy fallback or no citations
+        si = components.get("source_intelligence", {})
+        db["source_signal"] = {
+            "weight": SOURCE_SIGNAL_WEIGHT,
+            "raw": None,
+            "weighted": None,
+            "reason": si.get("reason", "No Perplexity citation data available"),
+            "recommendations": si.get("recommendations", []),
+        }
+
+    # ── Site readiness (hardcoded until site-audit module ships) ─────────────
+    db["site_readiness"] = {
+        "weight": SITE_READINESS_WEIGHT,
+        "raw": SITE_READINESS_DEFAULT,
+        "weighted": round(SITE_READINESS_DEFAULT * SITE_READINESS_WEIGHT, 2),
+        "reason": "Placeholder — site audit not yet run",
+    }
+
+    return db
 
 
 def _empty_score() -> dict:

@@ -234,6 +234,94 @@
     }
     .rank-badge-1 { background: #b45309; color: #ffffff; }
 
+    /* ── Where AI Gets Its Information ── */
+    .sources-section {
+      margin-bottom: 28px;
+    }
+    .sources-intro {
+      font-size: 9px;
+      color: #57534e;
+      margin-bottom: 10px;
+      line-height: 1.6;
+    }
+    .sources-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+    .sources-table th {
+      text-align: left;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #78716c;
+      padding: 6px 8px;
+      border-bottom: 1px solid #1c1917;
+      font-weight: normal;
+    }
+    .sources-table th.right { text-align: right; }
+    .sources-table td {
+      padding: 7px 8px;
+      border-bottom: 1px solid #e7e5e4;
+      color: #1c1917;
+    }
+    .sources-table td.right { text-align: right; }
+    .sources-table tr.your-site td { font-weight: bold; background: #fef3c7; }
+    .category-pill {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-size: 8px;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .cat-directory      { background: #dbeafe; color: #1e40af; }
+    .cat-firm_website   { background: #dcfce7; color: #166534; }
+    .cat-editorial      { background: #ede9fe; color: #6d28d9; }
+    .cat-legal_resource { background: #fef3c7; color: #92400e; }
+    .cat-review_platform{ background: #fce7f3; color: #9d174d; }
+    .cat-other          { background: #f3f4f6; color: #6b7280; }
+
+    /* ── Recommended Actions ── */
+    .actions-section {
+      margin-bottom: 28px;
+    }
+    .action-block {
+      margin-bottom: 14px;
+    }
+    .action-block-title {
+      font-size: 10px;
+      font-weight: bold;
+      color: #1c1917;
+      margin-bottom: 6px;
+    }
+    .dir-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    .dir-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border: 1px solid #d97706;
+      border-radius: 10px;
+      font-size: 9px;
+      color: #92400e;
+      background: #fef3c7;
+    }
+    .recommendations-list {
+      margin: 0;
+      padding-left: 14px;
+    }
+    .recommendations-list li {
+      font-size: 10px;
+      color: #1c1917;
+      margin-bottom: 6px;
+      line-height: 1.55;
+    }
+
     /* ── Footer note ── */
     .report-footer {
       margin-top: 32px;
@@ -402,6 +490,77 @@
       {% endfor %}
     </tbody>
   </table>
+</div>
+{% endif %}
+
+<!-- ── Where AI Gets Its Information ── -->
+{% if source_signal and source_signal.top_sources %}
+<div class="sources-section">
+  <div class="section-title">Where AI Gets Its Information</div>
+  <p class="sources-intro">
+    Domains cited by Perplexity when answering queries in your practice area and market.
+    {% if source_signal.client_domain_cited %}
+      <strong>Your website appeared in {{ source_signal.client_citation_count }} response(s).</strong>
+    {% else %}
+      <strong>Your website was not cited in any response.</strong>
+    {% endif %}
+  </p>
+  <table class="sources-table">
+    <thead>
+      <tr>
+        <th>Domain</th>
+        <th>Category</th>
+        <th class="right" style="width:64px;">Citations</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for src in source_signal.top_sources[:12] %}
+      {% set is_client = (src.category == 'firm_website' and src.domain == client.primary_domain) %}
+      <tr {% if is_client %}class="your-site"{% endif %}>
+        <td>{{ src.domain }}{% if is_client %} &#x2605;{% endif %}</td>
+        <td>
+          <span class="category-pill cat-{{ src.category }}">
+            {{ src.category | replace("_", " ") }}
+          </span>
+        </td>
+        <td class="right">{{ src.count }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- ── Recommended Actions ── -->
+{% if source_signal and (source_signal.recommendations or source_signal.missing_directories) %}
+<div class="actions-section">
+  <div class="section-title">Recommended Actions</div>
+
+  {% if source_signal.missing_directories %}
+  <div class="action-block">
+    <div class="action-block-title">Missing Directory Profiles</div>
+    <p style="font-size:9px;color:#57534e;margin-bottom:7px;">
+      Perplexity did not cite your firm on these AI-trusted legal directories.
+      Complete and up-to-date profiles increase the likelihood of being cited.
+    </p>
+    <div class="dir-pills">
+      {% for d in source_signal.missing_directories %}
+      <span class="dir-pill">{{ d }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if source_signal.recommendations %}
+  <div class="action-block">
+    <div class="action-block-title">Visibility Recommendations</div>
+    <ul class="recommendations-list">
+      {% for rec in source_signal.recommendations %}
+      <li>{{ rec }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 </div>
 {% endif %}
 

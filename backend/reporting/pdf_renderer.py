@@ -12,6 +12,7 @@ def render_report(
     competitors: list[dict],
     week_date: str,
     output_path: str,
+    source_signal: dict | None = None,
 ) -> str:
     """Generate a PDF report and return the file path."""
     env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)), autoescape=True)
@@ -23,6 +24,7 @@ def render_report(
         previous_score=previous_score,
         competitors=competitors,
         week_date=week_date,
+        source_signal=source_signal,
     )
 
     HTML(string=html_content).write_pdf(output_path)

@@ -12,9 +12,15 @@ from providers.perplexity import PerplexityProvider
 from providers.openai_monitor import OpenAIProvider
 from providers.gemini import GeminiProvider
 from resolution.matcher import resolve_mention
-from scoring.scorer import compute_visibility_score
+from scoring.scorer import compute_visibility_score, build_db_score_components
 from reporting.pdf_renderer import render_report
 from reporting.email_delivery import send_weekly_report
+from content.gap_detection import detect_gaps
+from content.brief_generator import generate_brief
+from content.draft_generator import generate_draft
+from content.compliance import scan_compliance
+from content.citation_matcher import match_citations
+from content.package_assembler import assemble_package
 from config.settings import settings
 from jinja2 import Environment, FileSystemLoader
 
@@ -276,6 +282,9 @@ def _run_single_client(db, client: dict, providers: dict):
     score_data["competitor_scores"] = competitor_scores
 
     # 5. Store visibility score
+    # Replace internal score_components with the clean DB-storage shape before upsert
+    score_data["score_components"] = build_db_score_components(score_data)
+
     db.table("visibility_scores").upsert({
         "client_id": client_id,
         "run_id": run_id,
@@ -302,8 +311,114 @@ def _run_single_client(db, client: dict, providers: dict):
         f"errors={len(errors)}"
     )
 
-    # 7. Generate PDF report + send email
+    # 7. Content pipeline — citation matching every week, generation on content weeks
+    try:
+        _run_content_pipeline(
+            db, client, run_id,
+            all_responses.data or [],
+            prompts,
+            registry,
+        )
+    except Exception as e:
+        logger.error(f"Content pipeline failed for {client_firm}: {e}", exc_info=True)
+
+    # 8. Generate PDF report + send email
     _deliver_report(db, client, score_data, run_id)
+
+
+def _is_content_week(today: date | None = None) -> bool:
+    """Return True on the 1st and 15th of every month (content generation days)."""
+    today = today or date.today()
+    return today.day in (1, 15)
+
+
+def _run_content_pipeline(
+    db,
+    client: dict,
+    run_id: str,
+    responses: list[dict],
+    prompts: list[dict],
+    registry: list[dict],
+) -> None:
+    """Run content gap detection, generation, and citation matching.
+
+    Citation matching runs every week.
+    Content generation runs only on content weeks (1st and 15th).
+    Never raises — all errors are logged so the main pipeline continues.
+    """
+    client_id   = client["id"]
+    client_firm = client["firm_name"]
+
+    # ── Citation matching (every week) ────────────────────────────────────────
+    published_result = (
+        db.table("content_drafts")
+        .select("id, published_url, first_cited_at")
+        .eq("client_id", client_id)
+        .eq("status", "published")
+        .execute()
+    )
+    published = [r for r in (published_result.data or []) if r.get("published_url")]
+    perplexity_responses = [r for r in responses if r.get("platform") == "perplexity"]
+
+    if published:
+        cite_result = match_citations(published, perplexity_responses, db, client_id)
+        logger.info(
+            f"Citation matching for {client_firm}: "
+            f"checked={cite_result['urls_checked']}, "
+            f"new_citations={cite_result['new_citations']}"
+        )
+
+    # ── Content generation (content weeks only) ───────────────────────────────
+    if not _is_content_week():
+        logger.info(f"Not a content week — skipping content generation for {client_firm}")
+        return
+
+    if not settings.anthropic_api_key:
+        logger.warning(
+            "ANTHROPIC_API_KEY not set — skipping content generation for %s", client_firm
+        )
+        return
+
+    gaps = detect_gaps(responses, prompts, client_firm, registry)
+    if not gaps:
+        logger.info(f"No content gaps detected for {client_firm}")
+        return
+
+    logger.info(f"Detected {len(gaps)} gap(s) for {client_firm}; generating top 2")
+
+    for gap in gaps[:2]:
+        try:
+            brief       = generate_brief(gap, client)
+            draft_data  = generate_draft(brief, client)
+            compliance  = scan_compliance(draft_data["html"], client_firm)
+            package_html = assemble_package(brief, draft_data, compliance, client)
+
+            status = "needs_review" if compliance["high_severity_count"] > 0 else "draft"
+
+            db.table("content_drafts").insert({
+                "client_id":        client_id,
+                "run_id":           run_id,
+                "gap_opportunity":  gap,
+                "brief":            brief,
+                "html":             draft_data["html"],
+                "package_html":     package_html,
+                "word_count":       draft_data["word_count"],
+                "firm_name_count":  draft_data["firm_name_count"],
+                "compliance_result": compliance,
+                "status":           status,
+            }).execute()
+
+            logger.info(
+                f"Content draft stored for {client_firm}: "
+                f"'{brief['title']}' status={status}"
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Content generation failed for gap '{gap['prompt_text']}' "
+                f"({client_firm}): {e}",
+                exc_info=True,
+            )
 
 
 def _deliver_report(db, client: dict, score_data: dict, run_id: str):
@@ -364,6 +479,7 @@ def _deliver_report(db, client: dict, score_data: dict, run_id: str):
             competitors=competitors,
             week_date=week_date,
             output_path=pdf_path,
+            source_signal=score_data.get("score_components", {}).get("source_signal"),
         )
 
         # Send
