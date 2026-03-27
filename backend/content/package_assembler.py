@@ -11,8 +11,30 @@ section. Includes:
   - Full article HTML
 """
 from __future__ import annotations
+import html
 import json
 import re
+
+try:
+    import bleach
+    _ALLOWED_TAGS = [
+        "h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "hr",
+        "ul", "ol", "li", "strong", "em", "b", "i", "a",
+        "table", "thead", "tbody", "tr", "th", "td",
+        "blockquote", "code", "pre", "span", "div", "sub", "sup",
+    ]
+    _ALLOWED_ATTRS = {"a": ["href", "title"], "td": ["colspan", "rowspan"], "th": ["colspan", "rowspan"]}
+
+    def _sanitize_article_html(raw_html: str) -> str:
+        return bleach.clean(raw_html, tags=_ALLOWED_TAGS, attributes=_ALLOWED_ATTRS, strip=True)
+except ImportError:
+    _SCRIPT_RE = re.compile(r"<script[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL)
+    _EVENT_RE = re.compile(r'\s+on\w+\s*=\s*["\'][^"\']*["\']', re.IGNORECASE)
+
+    def _sanitize_article_html(raw_html: str) -> str:
+        cleaned = _SCRIPT_RE.sub("", raw_html)
+        cleaned = _EVENT_RE.sub("", cleaned)
+        return cleaned
 
 
 # ── FAQ answer extraction ─────────────────────────────────────────────────────
@@ -76,9 +98,9 @@ def _compliance_section(compliance: dict) -> str:
     status_icon = "&#10003; Automated check passed" if compliance["passed"] else "&#9888; Attorney review required before publishing"
 
     items = "".join(
-        f'<li class="flag-item flag-{f["severity"]}">'
-        f'<strong>[{f["severity"].upper()}] {f["type"].replace("_", " ").title()}</strong>: '
-        f'{f["text"]} <em>({f["location"]})</em>'
+        f'<li class="flag-item flag-{html.escape(str(f["severity"]))}">'
+        f'<strong>[{html.escape(str(f["severity"]).upper())}] {html.escape(str(f["type"]).replace("_", " ").title())}</strong>: '
+        f'{html.escape(str(f["text"]))} <em>({html.escape(str(f["location"]))})</em>'
         f"</li>"
         for f in compliance["flags"]
     )
@@ -88,7 +110,7 @@ def _compliance_section(compliance: dict) -> str:
   <h2 class="section-title">Compliance Review Notes</h2>
   <p class="compliance-status {status_cls}">{status_icon}</p>
   <ul class="flag-list">{items}</ul>
-  <p class="compliance-note">{compliance.get("recommendation", "")}</p>
+  <p class="compliance-note">{html.escape(str(compliance.get("recommendation", "")))}</p>
 </div>"""
 
 
@@ -111,17 +133,18 @@ def assemble_package(
     Returns:
         Single HTML string. Store in content_drafts.package_html.
     """
-    firm_name   = client.get("firm_name", "")
-    url_slug    = brief.get("recommended_url_slug", "/blog/article")
-    title       = brief.get("title", "")
-    seo_title   = brief.get("seo_title", "")
-    meta_desc   = brief.get("meta_description", "")
-    word_target = brief.get("word_count_target", "—")
-    schema_type = brief.get("schema_type", "FAQPage")
+    firm_name   = html.escape(str(client.get("firm_name", "")))
+    url_slug    = html.escape(str(brief.get("recommended_url_slug", "/blog/article")))
+    title       = html.escape(str(brief.get("title", "")))
+    seo_title   = html.escape(str(brief.get("seo_title", "")))
+    meta_desc   = html.escape(str(brief.get("meta_description", "")))
+    word_target = html.escape(str(brief.get("word_count_target", "—")))
+    schema_type = html.escape(str(brief.get("schema_type", "FAQPage")))
 
     faq_pairs   = _extract_faq_pairs(draft.get("html", ""), brief.get("faq_questions"))
     schema_json = _build_faq_schema(faq_pairs)
 
+    # url_slug, seo_title, meta_desc are already escaped above
     checklist_items = [
         f"Publish at: <code>{url_slug}</code>",
         f"Page title (title tag): <em>{seo_title}</em>",
@@ -136,8 +159,8 @@ def assemble_package(
 
     statutes = draft.get("statutes_cited") or []
     entities = draft.get("local_entities_used") or []
-    stat_row = f"<tr><td>Statutes cited</td><td>{', '.join(statutes) or '—'}</td></tr>" if statutes else ""
-    ent_row  = f"<tr><td>Local entities used</td><td>{', '.join(entities) or '—'}</td></tr>" if entities else ""
+    stat_row = f"<tr><td>Statutes cited</td><td>{html.escape(', '.join(str(s) for s in statutes)) or '—'}</td></tr>" if statutes else ""
+    ent_row  = f"<tr><td>Local entities used</td><td>{html.escape(', '.join(str(e) for e in entities)) or '—'}</td></tr>" if entities else ""
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -215,12 +238,12 @@ def assemble_package(
   <div class="section-title">Overview</div>
   <table class="meta-table">
     <tr><td>Firm</td><td>{firm_name}</td></tr>
-    <tr><td>Target prompt</td><td>{brief.get("target_prompt", "—")}</td></tr>
+    <tr><td>Target prompt</td><td>{html.escape(str(brief.get("target_prompt", "—")))}</td></tr>
     <tr><td>Recommended URL</td><td><code>{url_slug}</code></td></tr>
     <tr><td>Schema type</td><td>{schema_type}</td></tr>
-    <tr><td>Word count</td><td>{draft.get("word_count", "—")} (target: {word_target})</td></tr>
-    <tr><td>Firm name mentions</td><td>{draft.get("firm_name_count", "—")} (target: 2–3)</td></tr>
-    <tr><td>FAQ questions</td><td>{draft.get("faq_count", "—")}</td></tr>
+    <tr><td>Word count</td><td>{html.escape(str(draft.get("word_count", "—")))} (target: {word_target})</td></tr>
+    <tr><td>Firm name mentions</td><td>{html.escape(str(draft.get("firm_name_count", "—")))} (target: 2–3)</td></tr>
+    <tr><td>FAQ questions</td><td>{html.escape(str(draft.get("faq_count", "—")))}</td></tr>
     {stat_row}
     {ent_row}
   </table>
@@ -249,7 +272,7 @@ def assemble_package(
 <div class="section">
   <div class="section-title">Article Content</div>
   <div class="article-wrapper">
-    {draft.get("html", "")}
+    {_sanitize_article_html(draft.get("html", ""))}
   </div>
 </div>
 
