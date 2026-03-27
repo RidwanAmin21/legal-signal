@@ -27,6 +27,13 @@ class OpenAIProvider(BaseProvider):
         if not settings.openai_api_key:
             raise ValueError("OPENAI_API_KEY is not set")
 
+        logger.info(
+            "OpenAI API call starting | model=gpt-4o | prompt_len=%d | geo=%s,%s",
+            len(prompt_text),
+            geo_config.get("city", "Dallas"),
+            geo_config.get("state", "TX"),
+        )
+
         start = time.time()
         localized_prompt = (
             f"I am located in {geo_config.get('city', 'Dallas')}, "
@@ -41,10 +48,22 @@ class OpenAIProvider(BaseProvider):
         )
         latency = int((time.time() - start) * 1000)
 
+        raw_text = response.choices[0].message.content or ""
+        usage = response.usage
+
+        logger.info(
+            "OpenAI API call completed | latency_ms=%d | response_len=%d | "
+            "prompt_tokens=%s | completion_tokens=%s | total_tokens=%s",
+            latency, len(raw_text),
+            usage.prompt_tokens if usage else "n/a",
+            usage.completion_tokens if usage else "n/a",
+            usage.total_tokens if usage else "n/a",
+        )
+
         return ProviderResult(
             provider=self.name,
             prompt_id="",
-            raw_text=response.choices[0].message.content or "",
+            raw_text=raw_text,
             citations=[],
             latency_ms=latency,
             model="gpt-4o",

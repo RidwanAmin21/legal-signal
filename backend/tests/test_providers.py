@@ -107,7 +107,7 @@ def test_gemini_returns_response_or_handles_block():
     assert result["provider"] == "gemini"
     assert isinstance(result["raw_text"], str)  # May be empty if blocked — that's fine
     assert result["latency_ms"] > 0
-    assert result["model"] == "gemini-2.0-flash"
+    assert result["model"] == "gemini-2.5-flash"
 
 
 @skip_no_google

@@ -24,6 +24,13 @@ class PerplexityProvider(BaseProvider):
         if not settings.perplexity_api_key:
             raise ValueError("PERPLEXITY_API_KEY is not set")
 
+        logger.info(
+            "Perplexity API call starting | model=sonar-pro | prompt_len=%d | geo=%s,%s",
+            len(prompt_text),
+            geo_config.get("city", "Dallas"),
+            geo_config.get("state", "TX"),
+        )
+
         start = time.time()
         payload = {
             "model": "sonar-pro",
@@ -47,6 +54,12 @@ class PerplexityProvider(BaseProvider):
             timeout=45,
         )
         latency = int((time.time() - start) * 1000)
+
+        if resp.status_code != 200:
+            logger.error(
+                "Perplexity API error | status=%d | latency_ms=%d | body=%s",
+                resp.status_code, latency, resp.text[:500],
+            )
         resp.raise_for_status()
         data = resp.json()
 
@@ -55,6 +68,15 @@ class PerplexityProvider(BaseProvider):
             {"url": url, "position": i}
             for i, url in enumerate(data.get("citations", []))
         ]
+
+        usage = data.get("usage", {})
+        logger.info(
+            "Perplexity API call completed | latency_ms=%d | response_len=%d | "
+            "citations=%d | prompt_tokens=%s | completion_tokens=%s",
+            latency, len(raw_text), len(citations),
+            usage.get("prompt_tokens", "n/a"),
+            usage.get("completion_tokens", "n/a"),
+        )
 
         return ProviderResult(
             provider=self.name,

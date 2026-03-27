@@ -27,6 +27,13 @@ class GeminiProvider(BaseProvider):
         if not settings.google_api_key:
             raise ValueError("GOOGLE_API_KEY is not set")
 
+        logger.info(
+            "Gemini API call starting | model=gemini-2.5-flash | prompt_len=%d | geo=%s,%s",
+            len(prompt_text),
+            geo_config.get("city", "Dallas"),
+            geo_config.get("state", "TX"),
+        )
+
         localized_prompt = (
             f"I am located in {geo_config.get('city', 'Dallas')}, "
             f"{geo_config.get('state', 'TX')}. {prompt_text}"
@@ -36,18 +43,29 @@ class GeminiProvider(BaseProvider):
 
         try:
             response = self.client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 contents=localized_prompt,
             )
             raw_text = response.text or ""
         except ValueError as e:
-            # Gemini safety block — not retryable, treat as empty response
-            logger.warning(f"Gemini returned no content (safety block or filter): {e}")
+            logger.warning(
+                "Gemini returned no content (safety block or filter) | error=%s | prompt_len=%d",
+                e, len(prompt_text),
+            )
         except Exception as e:
-            logger.error(f"Gemini API call failed: {e}")
+            latency = int((time.time() - start) * 1000)
+            logger.error(
+                "Gemini API call failed | error=%s | latency_ms=%d | prompt_len=%d",
+                e, latency, len(prompt_text),
+            )
             raise  # let tenacity retry this
 
         latency = int((time.time() - start) * 1000)
+
+        logger.info(
+            "Gemini API call completed | latency_ms=%d | response_len=%d | empty=%s",
+            latency, len(raw_text), raw_text == "",
+        )
 
         return ProviderResult(
             provider=self.name,
@@ -55,5 +73,5 @@ class GeminiProvider(BaseProvider):
             raw_text=raw_text,
             citations=[],
             latency_ms=latency,
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
         )

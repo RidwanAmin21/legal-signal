@@ -49,5 +49,5 @@ EXTRACTION_MODEL = "gpt-4o-mini"
 PROVIDER_MODELS = {
     "perplexity": "sonar-pro",
     "chatgpt": "gpt-4o",
-    "gemini": "gemini-2.0-flash",
+    "gemini": "gemini-2.5-flash",
 }
