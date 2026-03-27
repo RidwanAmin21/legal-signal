@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 import openai
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from config.settings import settings
@@ -32,11 +33,21 @@ AI Response to extract from:
 def extract_mentions(response_text: str, known_firms: list[str]) -> list[dict]:
     """Extract firm mentions from an AI response using GPT-4o-mini."""
     if not response_text or not response_text.strip():
+        logger.debug("Skipping extraction — empty response text")
         return []
 
     if not settings.openai_api_key:
+        logger.info(
+            "OpenAI key not set — using regex fallback | response_len=%d | known_firms=%d",
+            len(response_text), len(known_firms),
+        )
         from .regex_fallback import regex_extract
         return regex_extract(response_text, known_firms)
+
+    logger.info(
+        "Extraction starting | model=gpt-4o-mini | response_len=%d | known_firms=%d",
+        len(response_text), len(known_firms),
+    )
 
     client = openai.OpenAI(api_key=settings.openai_api_key)
 
@@ -64,7 +75,9 @@ def extract_mentions(response_text: str, known_firms: list[str]) -> list[dict]:
         )
 
     try:
+        start = time.time()
         result = _call()
+        latency_ms = int((time.time() - start) * 1000)
 
         content = (result.choices[0].message.content or "{}").strip()
         if content.startswith("```"):
@@ -72,15 +85,26 @@ def extract_mentions(response_text: str, known_firms: list[str]) -> list[dict]:
 
         parsed = json.loads(content)
 
-        # Prompt requests {"firms": [...]} — key is now deterministic
         if isinstance(parsed, dict):
             parsed = parsed.get("firms", [])
         if not isinstance(parsed, list):
             parsed = []
 
+        usage = result.usage
+        logger.info(
+            "Extraction completed | latency_ms=%d | firms_found=%d | "
+            "prompt_tokens=%s | completion_tokens=%s",
+            latency_ms, len(parsed),
+            usage.prompt_tokens if usage else "n/a",
+            usage.completion_tokens if usage else "n/a",
+        )
+
         return parsed
 
     except (json.JSONDecodeError, openai.APIError) as e:
-        logger.warning(f"Extraction failed, falling back to regex: {e}")
+        logger.warning(
+            "Extraction failed — falling back to regex | error=%s | response_len=%d",
+            e, len(response_text),
+        )
         from .regex_fallback import regex_extract
         return regex_extract(response_text, known_firms)
