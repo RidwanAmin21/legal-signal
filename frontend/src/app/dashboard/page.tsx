@@ -84,6 +84,8 @@ export default function DashboardPage() {
     : null;
 
   const loading = clientLoading;
+  const hasAuditData = !!latestScore;
+  const auditsLoaded = audits !== undefined;
 
   return (
     <DashboardLayout firmName={firmName}>
@@ -105,8 +107,19 @@ export default function DashboardPage() {
 
         {/* ── Score hero ── */}
         <div className="mb-6 rounded-lg border border-border bg-bg-card p-8">
-          {loading || !latestScore ? (
+          {loading || !auditsLoaded ? (
             <div className="h-24 animate-pulse rounded bg-border" />
+          ) : !hasAuditData ? (
+            <div className="py-8 text-center">
+              <p className="text-xs font-medium uppercase tracking-widest text-muted">AI Visibility Score</p>
+              <p className="mt-4 font-display text-5xl font-semibold text-muted">—</p>
+              <p className="mt-4 text-sm text-secondary">
+                No audit data yet. Run the pipeline to generate your first visibility score.
+              </p>
+              <p className="mt-2 text-xs text-muted">
+                <code className="rounded bg-border px-2 py-1">make pipeline-client client=your_client</code>
+              </p>
+            </div>
           ) : (
             <>
               <div className="flex items-start justify-between">
@@ -251,8 +264,10 @@ export default function DashboardPage() {
             {/* Competitor snapshot */}
             <div className="rounded-lg border border-border bg-bg-card p-5">
               <h2 className="mb-4 text-sm font-medium text-foreground">Competitor Visibility</h2>
-              {!competitors ? (
+              {!auditsLoaded ? (
                 <div className="h-32 animate-pulse rounded bg-border" />
+              ) : !competitors || competitors.length === 0 ? (
+                <p className="py-6 text-xs text-muted text-center">No competitor data yet.</p>
               ) : (
                 <ResponsiveContainer width="100%" height={140}>
                   <BarChart data={competitorChartData} layout="vertical" margin={{ left: 0, right: 16, top: 0, bottom: 0 }}>
