@@ -1,23 +1,20 @@
 import { createServerClient as createServiceClient } from "@/lib/supabase-server";
-import { createServerClient } from "@supabase/ssr";
+import { internalError } from "@/lib/api-errors";
+import { getAuthContext } from "@/lib/auth-context";
+import { createApiLogger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll() { return req.cookies.getAll(); }, setAll() {} } }
-  );
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const log = createApiLogger(req, `/api/audits/${params.id}`);
+  const auth = await getAuthContext(req);
+  if (!auth.ok) {
+    log.warn("Auth failed");
+    log.done(401);
+    return auth.response;
   }
 
-  const clientId = user.user_metadata?.client_id as string | undefined;
-  if (!clientId) {
-    return NextResponse.json({ error: "No client associated with this account" }, { status: 404 });
-  }
+  const { clientId } = auth.ctx;
+  log.setUser(auth.ctx.user.id, clientId);
 
   const db = createServiceClient();
 
@@ -29,10 +26,15 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     .single();
 
   if (runError || !run) {
+    log.warn("Audit not found or access denied", {
+      auditId: params.id,
+      dbError: runError?.message,
+    });
+    log.done(404);
     return NextResponse.json({ error: "Audit not found" }, { status: 404 });
   }
 
-  const [{ data: score }, { data: responses }] = await Promise.all([
+  const [{ data: score, error: scoreError }, { data: responses, error: responsesError }] = await Promise.all([
     db
       .from("visibility_scores")
       .select("*")
@@ -45,5 +47,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .order("created_at"),
   ]);
 
+  if (scoreError) {
+    log.debug("No visibility score found for audit run", { auditId: params.id });
+  }
+  if (responsesError) {
+    return internalError(responsesError, "audit-detail-responses", log);
+  }
+
+  log.info("Audit detail fetched", {
+    auditId: params.id,
+    hasScore: !!score,
+    responseCount: responses?.length ?? 0,
+  });
+  log.done(200);
   return NextResponse.json({ run, score: score ?? null, responses: responses ?? [] });
 }

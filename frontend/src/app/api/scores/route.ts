@@ -1,36 +1,34 @@
 import { createServerClient as createServiceClient } from "@/lib/supabase-server";
-import { createServerClient } from "@supabase/ssr";
+import { internalError } from "@/lib/api-errors";
+import { getAuthContext } from "@/lib/auth-context";
+import { createApiLogger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
+  const log = createApiLogger(req, "/api/scores");
   const { searchParams } = new URL(req.url);
   const clientId = searchParams.get("client_id");
 
   if (!clientId) {
+    log.warn("Missing client_id parameter");
+    log.done(400);
     return NextResponse.json({ error: "client_id required" }, { status: 400 });
   }
 
-  // Verify authenticated session
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return req.cookies.getAll(); },
-        setAll() {},
-      },
-    }
-  );
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await getAuthContext(req);
+  if (!auth.ok) {
+    log.warn("Auth failed");
+    log.done(401);
+    return auth.response;
   }
 
-  // Verify the user owns this client_id
-  const userClientId = user.user_metadata?.client_id as string | undefined;
-  const role = user.user_metadata?.role as string | undefined;
-  if (role !== "admin" && userClientId !== clientId) {
+  log.setUser(auth.ctx.user.id, auth.ctx.clientId);
+
+  if (auth.ctx.role !== "admin" && auth.ctx.clientId !== clientId) {
+    log.warn("Forbidden: user attempted to access another client's scores", {
+      requestedClientId: clientId,
+    });
+    log.done(403);
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -42,9 +40,9 @@ export async function GET(req: NextRequest) {
     .order("week_date", { ascending: false })
     .limit(12);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (error) return internalError(error, "scores", log);
 
+  log.info("Scores fetched", { rowCount: data?.length ?? 0, clientId });
+  log.done(200);
   return NextResponse.json(data ?? []);
 }

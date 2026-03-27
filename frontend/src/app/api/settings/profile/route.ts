@@ -1,34 +1,42 @@
 import { createServerClient as createServiceClient } from "@/lib/supabase-server";
-import { createServerClient } from "@supabase/ssr";
+import { internalError } from "@/lib/api-errors";
+import { getAuthContext } from "@/lib/auth-context";
+import { createApiLogger } from "@/lib/logger";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PUT(req: NextRequest) {
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll() { return req.cookies.getAll(); }, setAll() {} } }
-  );
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const log = createApiLogger(req, "/api/settings/profile");
+  const auth = await getAuthContext(req);
+  if (!auth.ok) {
+    log.warn("Auth failed");
+    log.done(401);
+    return auth.response;
   }
 
-  const clientId = user.user_metadata?.client_id as string | undefined;
-  if (!clientId) {
-    return NextResponse.json({ error: "No client associated with this account" }, { status: 404 });
-  }
+  const { clientId } = auth.ctx;
+  log.setUser(auth.ctx.user.id, clientId);
 
   const body = await req.json().catch(() => ({}));
-  const allowed = ["firm_name", "contact_email", "practice_areas", "primary_domain"];
+  const allowed = [
+    "firm_name",
+    "contact_email",
+    "practice_areas",
+    "primary_domain",
+    "market_key",
+    "geo_config",
+  ];
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) update[key] = body[key];
   }
 
   if (Object.keys(update).length === 0) {
+    log.warn("No valid fields to update", { bodyKeys: Object.keys(body) });
+    log.done(400);
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
+
+  log.info("Profile update requested", { fieldsUpdated: Object.keys(update) });
 
   const db = createServiceClient();
   const { data, error } = await db
@@ -38,6 +46,12 @@ export async function PUT(req: NextRequest) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return internalError(error, "profile", log);
+
+  log.info("Profile updated successfully", {
+    clientId,
+    updatedFields: Object.keys(update),
+  });
+  log.done(200);
   return NextResponse.json(data);
 }
