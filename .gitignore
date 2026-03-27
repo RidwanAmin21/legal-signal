@@ -37,3 +37,6 @@ logs/
 
 # ── Virtual Environment ───────────────────────────────────────────────────────
 .venv/
+
+# Security Audit 
+SECURITY_AUDIT.md
