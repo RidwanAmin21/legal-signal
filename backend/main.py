@@ -13,13 +13,33 @@ Usage:
 """
 import argparse
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+_LOG_FORMAT = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
+_LOG_DATEFMT = "%Y-%m-%dT%H:%M:%S%z"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format=_LOG_FORMAT,
+    datefmt=_LOG_DATEFMT,
+)
+
+_LOG_DIR = Path(__file__).resolve().parent / "logs"
+_LOG_DIR.mkdir(exist_ok=True)
+
+_file_handler = RotatingFileHandler(
+    _LOG_DIR / "pipeline.log",
+    maxBytes=10 * 1024 * 1024,  # 10 MB per file
+    backupCount=5,              # keep pipeline.log.1 through .5
+    encoding="utf-8",
+)
+_file_handler.setFormatter(logging.Formatter(_LOG_FORMAT, datefmt=_LOG_DATEFMT))
+logging.getLogger().addHandler(_file_handler)
 
 
 def _init_sentry():
