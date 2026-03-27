@@ -1,6 +1,7 @@
 """Full monitoring pipeline: AI APIs → extraction → resolution → scoring → DB."""
 import json
 import logging
+import re
 import tempfile
 import time
 from datetime import date, datetime, timezone
@@ -47,6 +48,10 @@ def _get_available_providers():
         available["chatgpt"] = OpenAIProvider
     if settings.google_api_key:
         available["gemini"] = GeminiProvider
+    logger.info(
+        "Available providers: %s",
+        ", ".join(available.keys()) if available else "none",
+    )
     return available
 
 
@@ -54,12 +59,22 @@ def _get_available_providers():
 
 def run_pipeline(client_name: str = None, all_clients: bool = False):
     """Run the full monitoring pipeline."""
+    pipeline_start = time.time()
+    logger.info(
+        "Pipeline starting | mode=%s | client_name=%s",
+        "all_clients" if all_clients else "single_client",
+        client_name or "n/a",
+    )
+
     db = get_supabase()
 
     if all_clients:
         result = db.table("clients").select("*").eq("is_active", True).execute()
         clients = result.data
+        logger.info("Loaded %d active client(s) from database", len(clients))
     else:
+        if not re.match(r'^[a-zA-Z0-9_-]+$', client_name or ""):
+            raise ValueError(f"Invalid client name: must contain only alphanumeric characters, hyphens, and underscores")
         config_path = Path(__file__).parent / "clients" / f"{client_name}.json"
         if not config_path.exists():
             raise FileNotFoundError(f"Client config not found: {config_path}")
@@ -77,6 +92,7 @@ def run_pipeline(client_name: str = None, all_clients: bool = False):
                 "Run: python main.py seed-demo"
             )
         clients = result.data
+        logger.info("Loaded client from config: %s", client_config["firm_name"])
 
     providers = _get_available_providers()
     if not providers:
@@ -86,23 +102,36 @@ def run_pipeline(client_name: str = None, all_clients: bool = False):
         )
 
     failed_clients = []
-    for client in clients:
+    for i, client in enumerate(clients):
+        logger.info(
+            "Processing client %d/%d: %s (id=%s)",
+            i + 1, len(clients), client["firm_name"], client["id"],
+        )
         try:
             _run_single_client(db, client, providers)
         except Exception as e:
             logger.error(f"Pipeline failed for {client['firm_name']}: {e}", exc_info=True)
             failed_clients.append(client["firm_name"])
 
+    pipeline_elapsed = int((time.time() - pipeline_start) * 1000)
+
     if failed_clients:
         logger.critical(
-            f"PIPELINE FAILURE: {len(failed_clients)} client(s) failed: "
-            f"{', '.join(failed_clients)}"
+            "PIPELINE FAILURE: %d client(s) failed: %s | total_elapsed_ms=%d",
+            len(failed_clients), ", ".join(failed_clients), pipeline_elapsed,
+        )
+    else:
+        logger.info(
+            "Pipeline completed successfully | clients=%d | total_elapsed_ms=%d",
+            len(clients), pipeline_elapsed,
         )
 
 
 def _run_single_client(db, client: dict, providers: dict):
     """Execute pipeline for a single client."""
+    client_start = time.time()
     client_id = client["id"]
+    client_firm = client["firm_name"]
     today = date.today().isoformat()
 
     # Idempotency check: skip if a completed/delivered run already exists today
@@ -117,8 +146,8 @@ def _run_single_client(db, client: dict, providers: dict):
     )
     if existing.data:
         logger.info(
-            f"Skipping {client['firm_name']} — already ran today "
-            f"(run_id={existing.data[0]['id']}, status={existing.data[0]['status']})"
+            "Skipping %s — already ran today (run_id=%s, status=%s)",
+            client_firm, existing.data[0]["id"], existing.data[0]["status"],
         )
         return
 
@@ -135,6 +164,10 @@ def _run_single_client(db, client: dict, providers: dict):
         "status": "running",
     }).execute()
     run_id = run.data[0]["id"]
+    logger.info(
+        "Monitoring run created | run_id=%s | client=%s | market=%s | metro=%s",
+        run_id, client_firm, market, metro,
+    )
 
     # 2. Load prompts from DB, fallback to file
     prompts_result = (
@@ -147,6 +180,7 @@ def _run_single_client(db, client: dict, providers: dict):
     prompts = prompts_result.data or []
 
     if not prompts:
+        logger.info("No prompts in DB for metro=%s — seeding from file", metro)
         seed_prompts(metro)
         prompts_result = (
             db.table("prompts")
@@ -161,7 +195,17 @@ def _run_single_client(db, client: dict, providers: dict):
 
     practice_areas = client.get("practice_areas") or []
     if practice_areas:
+        pre_filter = len(prompts)
         prompts = [p for p in prompts if p.get("practice_area") in practice_areas]
+        logger.info(
+            "Filtered prompts by practice_areas=%s | before=%d | after=%d",
+            practice_areas, pre_filter, len(prompts),
+        )
+
+    logger.info(
+        "Loaded %d prompts | platforms=%s | total_queries=%d",
+        len(prompts), list(providers.keys()), len(prompts) * len(providers),
+    )
 
     # 3. Load firm registry
     registry_result = (
@@ -173,13 +217,15 @@ def _run_single_client(db, client: dict, providers: dict):
     )
     registry = registry_result.data or []
     known_firm_names = [f["canonical_name"] for f in registry]
+    logger.info("Loaded %d firms from registry for market=%s", len(registry), market)
 
     errors = []
     total_responses = 0
     total_mentions = 0
     review_items = 0
+    query_start = time.time()
 
-    for prompt in prompts:
+    for prompt_idx, prompt in enumerate(prompts):
         for platform_name, ProviderClass in providers.items():
             try:
                 provider = ProviderClass()
@@ -217,6 +263,16 @@ def _run_single_client(db, client: dict, providers: dict):
                 }, on_conflict="run_id,prompt_id,platform").execute()
 
                 total_responses += 1
+
+                logger.debug(
+                    "Query %d/%d [%s] completed | prompt_id=%s | mentions=%d | "
+                    "review=%d | latency_ms=%d",
+                    prompt_idx + 1, len(prompts), platform_name,
+                    prompt["id"], len(resolved_mentions),
+                    sum(1 for m in resolved_mentions if m["needs_review"]),
+                    result["latency_ms"],
+                )
+
                 time.sleep(RATE_LIMIT_SEC)
 
             except Exception as e:
@@ -225,9 +281,22 @@ def _run_single_client(db, client: dict, providers: dict):
                     "platform": platform_name,
                     "error": str(e),
                 })
-                logger.warning(f"Failed {platform_name} for prompt: {e}")
+                logger.warning(
+                    "Query failed | prompt_idx=%d | platform=%s | prompt_id=%s | error=%s",
+                    prompt_idx + 1, platform_name, prompt.get("id", ""), e,
+                )
+
+    query_elapsed = int((time.time() - query_start) * 1000)
+    logger.info(
+        "All queries completed | run_id=%s | client=%s | responses=%d/%d | "
+        "mentions=%d | review_items=%d | errors=%d | query_elapsed_ms=%d",
+        run_id, client_firm, total_responses,
+        len(prompts) * len(providers), total_mentions,
+        review_items, len(errors), query_elapsed,
+    )
 
     # 4. Compute scores
+    scoring_start = time.time()
     all_responses = (
         db.table("monitoring_responses")
         .select("firms_mentioned, platform, prompt_id, citations")
@@ -235,7 +304,6 @@ def _run_single_client(db, client: dict, providers: dict):
         .execute()
     )
 
-    client_firm = client["firm_name"]
     client_mentions = []
     all_competitor_mentions = {}
     total_prompt_count = len(prompts) * len(providers)
@@ -281,8 +349,15 @@ def _run_single_client(db, client: dict, providers: dict):
         competitor_scores[comp_name] = comp_score["overall_score"]
     score_data["competitor_scores"] = competitor_scores
 
+    scoring_elapsed = int((time.time() - scoring_start) * 1000)
+    logger.info(
+        "Scoring completed | run_id=%s | client=%s | overall_score=%s | "
+        "client_mentions=%d | competitors=%d | scoring_elapsed_ms=%d",
+        run_id, client_firm, score_data.get("overall_score"),
+        len(client_mentions), len(competitor_scores), scoring_elapsed,
+    )
+
     # 5. Store visibility score
-    # Replace internal score_components with the clean DB-storage shape before upsert
     score_data["score_components"] = build_db_score_components(score_data)
 
     db.table("visibility_scores").upsert({
@@ -303,12 +378,12 @@ def _run_single_client(db, client: dict, providers: dict):
         "error_log": errors,
     }).eq("id", run_id).execute()
 
+    client_elapsed = int((time.time() - client_start) * 1000)
     logger.info(
-        f"Pipeline complete for {client_firm}: "
-        f"score={score_data['overall_score']}, "
-        f"mentions={total_mentions}, "
-        f"reviews={review_items}, "
-        f"errors={len(errors)}"
+        "Pipeline complete for %s | run_id=%s | score=%s | mentions=%d | "
+        "reviews=%d | errors=%d | client_elapsed_ms=%d",
+        client_firm, run_id, score_data["overall_score"],
+        total_mentions, review_items, len(errors), client_elapsed,
     )
 
     # 7. Content pipeline — citation matching every week, generation on content weeks
@@ -346,8 +421,11 @@ def _run_content_pipeline(
     Content generation runs only on content weeks (1st and 15th).
     Never raises — all errors are logged so the main pipeline continues.
     """
+    content_start = time.time()
     client_id   = client["id"]
     client_firm = client["firm_name"]
+
+    logger.info("Content pipeline starting | client=%s | run_id=%s", client_firm, run_id)
 
     # ── Citation matching (every week) ────────────────────────────────────────
     published_result = (
@@ -361,33 +439,42 @@ def _run_content_pipeline(
     perplexity_responses = [r for r in responses if r.get("platform") == "perplexity"]
 
     if published:
+        cite_start = time.time()
         cite_result = match_citations(published, perplexity_responses, db, client_id)
+        cite_elapsed = int((time.time() - cite_start) * 1000)
         logger.info(
-            f"Citation matching for {client_firm}: "
-            f"checked={cite_result['urls_checked']}, "
-            f"new_citations={cite_result['new_citations']}"
+            "Citation matching completed | client=%s | checked=%d | "
+            "new_citations=%d | elapsed_ms=%d",
+            client_firm, cite_result["urls_checked"],
+            cite_result["new_citations"], cite_elapsed,
         )
+    else:
+        logger.info("No published content to match citations for | client=%s", client_firm)
 
     # ── Content generation (content weeks only) ───────────────────────────────
     if not _is_content_week():
-        logger.info(f"Not a content week — skipping content generation for {client_firm}")
+        logger.info("Not a content week — skipping content generation | client=%s", client_firm)
         return
 
     if not settings.anthropic_api_key:
         logger.warning(
-            "ANTHROPIC_API_KEY not set — skipping content generation for %s", client_firm
+            "ANTHROPIC_API_KEY not set — skipping content generation | client=%s", client_firm
         )
         return
 
     gaps = detect_gaps(responses, prompts, client_firm, registry)
     if not gaps:
-        logger.info(f"No content gaps detected for {client_firm}")
+        logger.info("No content gaps detected | client=%s", client_firm)
         return
 
-    logger.info(f"Detected {len(gaps)} gap(s) for {client_firm}; generating top 2")
+    logger.info(
+        "Content gaps detected | client=%s | gap_count=%d | generating top 2",
+        client_firm, len(gaps),
+    )
 
-    for gap in gaps[:2]:
+    for gap_idx, gap in enumerate(gaps[:2]):
         try:
+            gap_start = time.time()
             brief       = generate_brief(gap, client)
             draft_data  = generate_draft(brief, client)
             compliance  = scan_compliance(draft_data["html"], client_firm)
@@ -408,17 +495,29 @@ def _run_content_pipeline(
                 "status":           status,
             }).execute()
 
+            gap_elapsed = int((time.time() - gap_start) * 1000)
             logger.info(
-                f"Content draft stored for {client_firm}: "
-                f"'{brief['title']}' status={status}"
+                "Content draft stored | client=%s | gap=%d/%d | "
+                "title=%s | status=%s | word_count=%d | elapsed_ms=%d",
+                client_firm, gap_idx + 1, min(2, len(gaps)),
+                brief["title"][:60], status,
+                draft_data["word_count"], gap_elapsed,
             )
 
         except Exception as e:
             logger.error(
-                f"Content generation failed for gap '{gap['prompt_text']}' "
-                f"({client_firm}): {e}",
+                "Content generation failed | client=%s | gap=%d/%d | "
+                "prompt=%s | error=%s",
+                client_firm, gap_idx + 1, min(2, len(gaps)),
+                gap["prompt_text"][:60], e,
                 exc_info=True,
             )
+
+    content_elapsed = int((time.time() - content_start) * 1000)
+    logger.info(
+        "Content pipeline completed | client=%s | total_elapsed_ms=%d",
+        client_firm, content_elapsed,
+    )
 
 
 def _deliver_report(db, client: dict, score_data: dict, run_id: str):
@@ -430,7 +529,7 @@ def _deliver_report(db, client: dict, score_data: dict, run_id: str):
     pdf_path = None  # must be initialized before try so finally can safely reference it
 
     if not contact_email:
-        logger.warning(f"No contact_email for {client_firm} — skipping email delivery")
+        logger.warning("No contact_email for %s — skipping email delivery", client_firm)
         return
 
     if not settings.resend_api_key:
@@ -438,6 +537,12 @@ def _deliver_report(db, client: dict, score_data: dict, run_id: str):
         return
 
     try:
+        delivery_start = time.time()
+        logger.info(
+            "Report delivery starting | client=%s | score=%s | to=%s",
+            client_firm, score_data.get("overall_score"), contact_email,
+        )
+
         # Fetch the previous score for delta display
         prev_result = (
             db.table("visibility_scores")
@@ -472,6 +577,7 @@ def _deliver_report(db, client: dict, score_data: dict, run_id: str):
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             pdf_path = tmp.name
 
+        pdf_start = time.time()
         render_report(
             client=client,
             score=score_data,
@@ -481,6 +587,8 @@ def _deliver_report(db, client: dict, score_data: dict, run_id: str):
             output_path=pdf_path,
             source_signal=score_data.get("score_components", {}).get("source_signal"),
         )
+        pdf_elapsed = int((time.time() - pdf_start) * 1000)
+        logger.info("PDF rendered | client=%s | pdf_elapsed_ms=%d", client_firm, pdf_elapsed)
 
         # Send
         send_weekly_report(
@@ -496,12 +604,19 @@ def _deliver_report(db, client: dict, score_data: dict, run_id: str):
             "status": "delivered",
         }).eq("id", run_id).execute()
 
-        logger.info(f"Report delivered to {contact_email} for {client_firm}")
+        delivery_elapsed = int((time.time() - delivery_start) * 1000)
+        logger.info(
+            "Report delivered | client=%s | to=%s | delivery_elapsed_ms=%d",
+            client_firm, contact_email, delivery_elapsed,
+        )
 
     except Exception as e:
-        logger.error(f"Report delivery failed for {client_firm}: {e}", exc_info=True)
+        logger.error(
+            "Report delivery failed | client=%s | to=%s | error=%s",
+            client_firm, contact_email, e,
+            exc_info=True,
+        )
     finally:
-        # Clean up temp PDF regardless of success or failure
         if pdf_path:
             try:
                 Path(pdf_path).unlink(missing_ok=True)
