@@ -1,8 +1,12 @@
 import base64
+import logging
 import re
+import time
 import resend
 from pathlib import Path
 from config.settings import settings
+
+logger = logging.getLogger(__name__)
 
 
 def _safe_filename(name: str, max_len: int = 60) -> str:
@@ -19,13 +23,19 @@ def send_weekly_report(
     html_content: str,
 ) -> dict:
     """Send the weekly report email with PDF attachment."""
-    # Set API key inside the function to avoid module-level side effects
     resend.api_key = settings.resend_api_key
     if not resend.api_key:
         raise ValueError("RESEND_API_KEY is not configured")
 
     pdf_bytes = Path(pdf_path).read_bytes()
+    pdf_size_kb = len(pdf_bytes) / 1024
     filename = f"legalsignal-report-{_safe_filename(firm_name)}.pdf"
+
+    logger.info(
+        "Sending weekly report email | to=%s | firm=%s | score=%d | "
+        "pdf_size_kb=%.1f | from=%s",
+        to_email, firm_name, score, pdf_size_kb, settings.from_email,
+    )
 
     params = {
         "from": settings.from_email,
@@ -38,4 +48,14 @@ def send_weekly_report(
         }],
     }
 
-    return resend.Emails.send(params)
+    start = time.time()
+    result = resend.Emails.send(params)
+    latency_ms = int((time.time() - start) * 1000)
+
+    email_id = result.get("id", "unknown") if isinstance(result, dict) else "unknown"
+    logger.info(
+        "Email sent successfully | to=%s | firm=%s | email_id=%s | latency_ms=%d",
+        to_email, firm_name, email_id, latency_ms,
+    )
+
+    return result
