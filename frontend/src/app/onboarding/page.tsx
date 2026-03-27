@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { METRO_TO_MARKET_KEY } from "@/lib/constants";
 
 const PRACTICE_AREAS = [
   "Personal Injury","Family Law","Criminal Defense","Immigration",
@@ -30,6 +31,22 @@ export default function OnboardingPage() {
   const [competitorInput, setCompetitorInput] = useState("");
   const [competitors, setCompetitors] = useState<string[]>([]);
 
+  const [launching, setLaunching] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  // Pre-populate firm name from the client record created during signup
+  useEffect(() => {
+    fetch("/api/client")
+      .then((r) => {
+        if (r.ok) return r.json();
+        return null;
+      })
+      .then((data) => {
+        if (data?.firm_name) setFirmName(data.firm_name);
+      })
+      .catch(() => {});
+  }, []);
+
   const addCompetitor = () => {
     const v = competitorInput.trim();
     if (v && competitors.length < 5 && !competitors.includes(v)) {
@@ -44,10 +61,36 @@ export default function OnboardingPage() {
     );
   };
 
-  const [launching, setLaunching] = useState(false);
-  const handleLaunch = () => {
+  const handleLaunch = async () => {
     setLaunching(true);
-    setTimeout(() => router.push("/dashboard"), 2000);
+    setSaveError("");
+
+    const marketKey = METRO_TO_MARKET_KEY[metro] || "pending";
+
+    const res = await fetch("/api/settings/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firm_name: firmName,
+        primary_domain: website || null,
+        market_key: marketKey,
+        practice_areas: practiceAreas,
+        geo_config: {
+          metro_display: metro,
+          firm_size: firmSize,
+          competitors,
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      setLaunching(false);
+      setSaveError("Failed to save your setup. Please try again.");
+      return;
+    }
+
+    router.push("/dashboard");
+    router.refresh();
   };
 
   return (
@@ -73,7 +116,7 @@ export default function OnboardingPage() {
         {/* ── Step 1: Firm Profile ── */}
         {step === 1 && (
           <div>
-            <h1 className="font-display text-2xl font-semibold text-foreground">Let's set up your firm.</h1>
+            <h1 className="font-display text-2xl font-semibold text-foreground">Let&apos;s set up your firm.</h1>
             <p className="mt-2 text-sm text-muted">This helps us build your AI visibility audit.</p>
             <div className="mt-8 space-y-5">
               <div>
@@ -119,7 +162,7 @@ export default function OnboardingPage() {
         {step === 2 && (
           <div>
             <h1 className="font-display text-2xl font-semibold text-foreground">What does your firm handle?</h1>
-            <p className="mt-2 text-sm text-muted">Select all that apply. We'll build your audit and content around these.</p>
+            <p className="mt-2 text-sm text-muted">Select all that apply. We&apos;ll build your audit and content around these.</p>
             <div className="mt-8 flex flex-wrap gap-2">
               {PRACTICE_AREAS.map((area) => (
                 <button key={area} onClick={() => toggleArea(area)}
@@ -138,14 +181,14 @@ export default function OnboardingPage() {
         {/* ── Step 3: Competitors ── */}
         {step === 3 && (
           <div>
-            <h1 className="font-display text-2xl font-semibold text-foreground">Who's competing for your clients in AI?</h1>
-            <p className="mt-2 text-sm text-muted">We'll track whether AI recommends them instead of you. Up to 5 firms.</p>
+            <h1 className="font-display text-2xl font-semibold text-foreground">Who&apos;s competing for your clients in AI?</h1>
+            <p className="mt-2 text-sm text-muted">We&apos;ll track whether AI recommends them instead of you. Up to 5 firms.</p>
             <div className="mt-8">
               <div className="flex gap-2">
                 <input
                   value={competitorInput}
                   onChange={(e) => setCompetitorInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addCompetitor()}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCompetitor())}
                   placeholder="e.g. Thompson Law"
                   className="input-gold h-11 flex-1 rounded-md border border-border bg-bg-input px-4 text-sm text-foreground placeholder:text-muted"
                 />
@@ -175,8 +218,8 @@ export default function OnboardingPage() {
         {/* ── Step 4: Launch ── */}
         {step === 4 && (
           <div>
-            <h1 className="font-display text-2xl font-semibold text-foreground">Your first AI visibility audit is ready.</h1>
-            <p className="mt-2 text-sm text-muted">Review your setup before we run it.</p>
+            <h1 className="font-display text-2xl font-semibold text-foreground">You&apos;re all set.</h1>
+            <p className="mt-2 text-sm text-muted">Review your setup, then head to your dashboard.</p>
             <div className="mt-8 rounded-md border border-border bg-bg-input p-5 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted">Firm</span>
@@ -197,6 +240,13 @@ export default function OnboardingPage() {
                 <span className="font-medium text-foreground">{competitors.length}</span>
               </div>
             </div>
+
+            {saveError && (
+              <div className="mt-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-xs text-error">
+                {saveError}
+              </div>
+            )}
+
             <button
               onClick={handleLaunch}
               disabled={launching}
@@ -205,15 +255,15 @@ export default function OnboardingPage() {
               {launching ? (
                 <>
                   <span className="inline-block h-4 w-4 rounded-full border-2 border-background border-t-transparent animate-spin" />
-                  Launching audit...
+                  Saving...
                 </>
               ) : (
-                "Run My Audit"
+                "Go to Dashboard"
               )}
             </button>
             {!launching && (
               <p className="mt-3 text-center text-xs text-muted">
-                This usually takes 2–3 minutes. We're querying real AI engines in real time.
+                Your first audit will be available once the pipeline runs.
               </p>
             )}
           </div>

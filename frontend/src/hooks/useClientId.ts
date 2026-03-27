@@ -9,7 +9,7 @@ export function useClientId() {
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
-      setClientId(data.user?.user_metadata?.client_id ?? "");
+      setClientId(data.user?.app_metadata?.client_id ?? "");
       setLoading(false);
     });
   }, []);
