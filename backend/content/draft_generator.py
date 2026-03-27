@@ -7,6 +7,7 @@ extract metadata (word count, statute citations, FAQ count, etc.).
 from __future__ import annotations
 import logging
 import re
+import time
 
 import anthropic
 
@@ -124,26 +125,51 @@ def generate_draft(brief: dict, client: dict) -> dict:
         f"Write the full article now."
     )
 
-    logger.debug("Requesting article draft from Claude for: %s", brief.get("title"))
+    logger.info(
+        "Draft generation starting | model=%s | firm=%s | title=%s",
+        _MODEL, client["firm_name"], brief.get("title", "unknown")[:60],
+    )
 
+    start = time.time()
     response = sdk.messages.create(
         model=_MODEL,
         max_tokens=_MAX_TOKENS,
         system=_SYSTEM,
         messages=[{"role": "user", "content": user_message}],
     )
+    latency_ms = int((time.time() - start) * 1000)
+
+    usage = response.usage
+    logger.info(
+        "Draft generation API call completed | latency_ms=%d | response_len=%d | "
+        "input_tokens=%s | output_tokens=%s",
+        latency_ms, len(response.content[0].text),
+        usage.input_tokens if usage else "n/a",
+        usage.output_tokens if usage else "n/a",
+    )
 
     html = _strip_fences(response.content[0].text)
 
     firm_name = client["firm_name"]
     faq_qs    = _extract_faq_questions(html)
+    word_count = _word_count(html)
+    firm_name_count = _count_firm_mentions(html, firm_name)
+    statutes = _extract_statutes(html)
+    entities_used = _local_entities_used(html, brief.get("local_entities"))
+
+    logger.info(
+        "Draft post-processing complete | word_count=%d | firm_mentions=%d | "
+        "faq_count=%d | statutes=%d | local_entities_used=%d | firm=%s",
+        word_count, firm_name_count, len(faq_qs),
+        len(statutes), len(entities_used), firm_name,
+    )
 
     return {
         "html":               html,
-        "word_count":         _word_count(html),
-        "firm_name_count":    _count_firm_mentions(html, firm_name),
-        "local_entities_used": _local_entities_used(html, brief.get("local_entities")),
-        "statutes_cited":     _extract_statutes(html),
+        "word_count":         word_count,
+        "firm_name_count":    firm_name_count,
+        "local_entities_used": entities_used,
+        "statutes_cited":     statutes,
         "faq_count":          len(faq_qs),
         "faq_questions_found": faq_qs,
     }

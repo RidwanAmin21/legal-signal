@@ -7,6 +7,7 @@ into a publishable article.
 from __future__ import annotations
 import json
 import logging
+import time
 
 import anthropic
 
@@ -105,19 +106,33 @@ def generate_brief(gap: dict, client: dict) -> dict:
     sdk = anthropic.Anthropic(api_key=settings.anthropic_api_key)
     user_message = _build_user_message(gap, client)
 
-    logger.debug("Requesting content brief from Claude for prompt: %s", gap["prompt_text"])
+    logger.info(
+        "Brief generation starting | model=%s | firm=%s | gap_type=%s | prompt=%s",
+        _MODEL, client["firm_name"], gap["gap_type"], gap["prompt_text"][:80],
+    )
 
+    start = time.time()
     response = sdk.messages.create(
         model=_MODEL,
         max_tokens=_MAX_TOKENS,
         system=_SYSTEM,
         messages=[{"role": "user", "content": user_message}],
     )
+    latency_ms = int((time.time() - start) * 1000)
 
     raw = response.content[0].text
+    usage = response.usage
+
+    logger.info(
+        "Brief generation API call completed | latency_ms=%d | response_len=%d | "
+        "input_tokens=%s | output_tokens=%s",
+        latency_ms, len(raw),
+        usage.input_tokens if usage else "n/a",
+        usage.output_tokens if usage else "n/a",
+    )
+
     brief = _parse_brief(raw)
 
-    # Stamp in fields the caller always needs
     brief["target_prompt"] = gap["prompt_text"]
     brief["gap_type"]       = gap["gap_type"]
     brief["prompt_id"]      = gap.get("prompt_id")
@@ -129,6 +144,17 @@ def generate_brief(gap: dict, client: dict) -> dict:
     }
     missing = required - brief.keys()
     if missing:
+        logger.error(
+            "Brief missing required keys | missing=%s | firm=%s",
+            missing, client["firm_name"],
+        )
         raise ValueError(f"Brief is missing required keys: {missing}")
+
+    logger.info(
+        "Brief generated successfully | title=%s | word_count_target=%s | firm=%s",
+        brief.get("title", "unknown")[:60],
+        brief.get("word_count_target", "n/a"),
+        client["firm_name"],
+    )
 
     return brief
