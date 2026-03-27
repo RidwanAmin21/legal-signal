@@ -1,6 +1,7 @@
 """Supabase client and database utilities."""
 import json
 import logging
+import re
 from pathlib import Path
 
 from supabase import create_client, Client
@@ -43,6 +44,8 @@ def run_migrations() -> None:
 
 def seed_prompts(metro: str = "dallas") -> int:
     """Seed prompts table from prompts/{metro}.json. Returns count inserted."""
+    if not re.match(r'^[a-zA-Z0-9_-]+$', metro):
+        raise ValueError(f"Invalid metro name: must contain only alphanumeric characters, hyphens, and underscores")
     db = get_supabase()
     prompts_dir = Path(__file__).parent.parent / "prompts"
     path = prompts_dir / f"{metro}.json"
@@ -68,6 +71,8 @@ def seed_prompts(metro: str = "dallas") -> int:
 
 def seed_registry(market: str) -> int:
     """Seed firm_registry for a market from db/seeds/{market}.json."""
+    if not re.match(r'^[a-zA-Z0-9_-]+$', market):
+        raise ValueError(f"Invalid market name: must contain only alphanumeric characters, hyphens, and underscores")
     db = get_supabase()
     seeds_dir = Path(__file__).parent / "seeds"
     seed_file = seeds_dir / f"{market}.json"
