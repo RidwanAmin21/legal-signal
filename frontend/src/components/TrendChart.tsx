@@ -31,10 +31,11 @@ export default function TrendChart({ scores }: TrendChartProps) {
   }));
 
   // Token values — must be hex for Recharts (CSS variables aren't resolved in SVG attributes)
-  const ACCENT   = "#C9A84C"; // --accent
-  const BORDER   = "#1E2230"; // --border
-  const BG_CARD  = "#14171F"; // --bg-card
-  const MUTED    = "#6B7280"; // --muted
+  const ACCENT   = "var(--accent)";
+  const BORDER   = "var(--border)";
+  const BG_CARD  = "var(--bg-card)";
+  const FG       = "var(--foreground)";
+  const MUTED    = "var(--muted)";
 
   return (
     <div className="rounded-lg border border-border bg-card p-6">
@@ -66,7 +67,7 @@ export default function TrendChart({ scores }: TrendChartProps) {
               border: `1px solid ${BORDER}`,
               borderRadius: "6px",
               fontSize: "12px",
-              color: "#FFFFFF",
+              color: FG,
             }}
             formatter={(value) => [value, "Score"]}
           />

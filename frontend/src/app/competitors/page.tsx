@@ -8,10 +8,11 @@ import { useScores } from "@/hooks/useScores";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
 } from "recharts";
+import LoadingScreen, { useMinLoadingDuration } from "@/components/LoadingScreen";
 
 export default function CompetitorsPage() {
   const [selected, setSelected] = useState<string | null>(null);
-  const { clientId } = useClientId();
+  const { clientId, loading: clientLoading } = useClientId();
 
   const { data: client } = useQuery({
     queryKey: ["client"],
@@ -48,18 +49,28 @@ export default function CompetitorsPage() {
     { subject: "Sentiment",   you: Math.round((latestScore.positive_sentiment_rate ?? 0) * 100), leader: leader.score },
   ] : [];
 
+  const showLoading = useMinLoadingDuration(clientLoading);
+
+  if (showLoading) {
+    return (
+      <DashboardLayout firmName={firmName}>
+        <LoadingScreen message="Loading competitors\u2026" fullScreen={false} />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout firmName={firmName}>
-      <div className="px-8 py-8">
+      <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
 
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="font-display text-2xl font-semibold text-foreground">Competitor Tracking</h1>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="font-display text-xl font-semibold text-foreground sm:text-2xl">Competitor Tracking</h1>
           <p className="mt-1 text-sm text-muted">How your AI visibility stacks up against competitors in your market.</p>
         </div>
 
-        {/* Competitor table */}
-        <div className="mb-8 rounded-lg border border-border bg-bg-card overflow-hidden">
+        {/* Competitor table — H3: scrollable on mobile */}
+        <div className="mb-8 rounded-lg border border-border bg-card overflow-hidden overflow-x-auto">
           <div className="border-b border-border px-5 py-4">
             <h2 className="text-sm font-medium text-foreground">
               Visibility Rankings — {client?.market_key?.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()) ?? "Your Market"}
@@ -74,7 +85,7 @@ export default function CompetitorsPage() {
           ) : allFirms.length === 0 ? (
             <p className="px-5 py-8 text-xs text-muted text-center">No competitor data yet. Run the pipeline to see rankings.</p>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[500px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-background/30">
                   <th className="px-5 py-3 text-left text-xs font-medium text-muted">Rank</th>
@@ -115,7 +126,7 @@ export default function CompetitorsPage() {
                           <div className="h-1.5 w-16 overflow-hidden rounded-full bg-border">
                             <div
                               className="h-full rounded-full"
-                              style={{ width: `${comp.score}%`, background: comp.you ? "#C9A84C" : "#2A2D36" }}
+                              style={{ width: `${comp.score}%`, background: comp.you ? "var(--accent)" : "#2A2D36" }}
                             />
                           </div>
                         </div>
@@ -142,14 +153,14 @@ export default function CompetitorsPage() {
           {/* Left: radar chart (3/5) */}
           <div className="lg:col-span-3">
             {latestScore && radarData.length > 0 && (
-              <div className="rounded-lg border border-border bg-bg-card p-5">
+              <div className="rounded-lg border border-border bg-card p-5">
                 <h2 className="mb-1 text-sm font-medium text-foreground">Your Signal Breakdown</h2>
                 <p className="mb-4 text-[11px] text-muted">Your scores across each visibility signal</p>
                 <ResponsiveContainer width="100%" height={260}>
                   <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
-                    <PolarGrid stroke="#1E2230" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: "#6B7280" }} />
-                    <Radar name="You" dataKey="you" stroke="#C9A84C" fill="#C9A84C" fillOpacity={0.2} strokeWidth={1.5} />
+                    <PolarGrid stroke="var(--border)" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11, fill: "var(--muted)" }} />
+                    <Radar name="You" dataKey="you" stroke="var(--accent)" fill="var(--accent)" fillOpacity={0.2} strokeWidth={1.5} />
                   </RadarChart>
                 </ResponsiveContainer>
               </div>
@@ -159,10 +170,10 @@ export default function CompetitorsPage() {
           {/* Right: competitor detail (2/5) */}
           <div className="lg:col-span-2 space-y-6">
             {selectedComp ? (
-              <div className="rounded-lg border border-border bg-bg-card p-5">
+              <div className="rounded-lg border border-border bg-card p-5">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-sm font-medium text-foreground">{selectedComp.canonical_name}</h2>
-                  <button onClick={() => setSelected(null)} className="text-muted hover:text-foreground transition-colors">
+                  <button onClick={() => setSelected(null)} aria-label="Close competitor detail" className="text-muted hover:text-foreground transition-colors">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                     </svg>
@@ -181,13 +192,13 @@ export default function CompetitorsPage() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-lg border border-border bg-bg-card p-5 flex items-center justify-center">
+              <div className="rounded-lg border border-border bg-card p-5 flex items-center justify-center">
                 <p className="text-xs text-muted py-4">Click a competitor row to see details</p>
               </div>
             )}
 
             {latestScore && (
-              <div className="rounded-lg border border-border bg-bg-card p-5">
+              <div className="rounded-lg border border-border bg-card p-5">
                 <h2 className="mb-4 text-sm font-medium text-foreground">Your Platform Scores</h2>
                 <div className="space-y-3">
                   {[

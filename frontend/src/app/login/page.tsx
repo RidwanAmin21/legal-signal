@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
+import LoadingScreen, { useMinLoadingDuration } from "@/components/LoadingScreen";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,6 +29,8 @@ export default function LoginPage() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
 
+  const showLoading = useMinLoadingDuration(loading);
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -38,8 +41,8 @@ export default function LoginPage() {
     if (authError) {
       setError(authError.message);
     } else {
-      router.push(next);
-      router.refresh();
+      // Full navigation ensures cookies are committed before protected pages load
+      window.location.href = next;
     }
   };
 
@@ -105,7 +108,7 @@ export default function LoginPage() {
       {/* ── Left branding panel ── */}
       <div className="relative hidden lg:flex lg:w-1/2 flex-col justify-between bg-bg-secondary border-r border-border p-12 overflow-hidden">
         <div className="pointer-events-none absolute inset-0 select-none overflow-hidden opacity-[0.03]"
-          style={{ fontFamily: "serif", fontSize: 80, lineHeight: 1.1, color: "#C9A84C" }}>
+          style={{ fontFamily: "serif", fontSize: 80, lineHeight: 1.1, color: "var(--accent)" }}>
           {Array.from({ length: 80 }).map((_, i) => (
             <span key={i} style={{ display: "inline-block", margin: "0 12px" }}>§</span>
           ))}
@@ -127,7 +130,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="relative rounded-lg border border-border bg-bg-card px-5 py-4">
+        <div className="relative rounded-lg border border-border bg-card px-5 py-4">
           <p className="text-xs text-muted">Recent result</p>
           <p className="mt-1 text-sm font-medium text-foreground">
             &ldquo;Firms using GEO see 3.2× more AI referrals within 90 days.&rdquo;
@@ -137,7 +140,15 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right form panel ── */}
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-16">
+      <div className="relative flex flex-1 flex-col items-center justify-center px-6 py-16">
+        {showLoading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+            <LoadingScreen
+              message={tab === "signin" ? "Signing you in\u2026" : "Creating your account\u2026"}
+              fullScreen={false}
+            />
+          </div>
+        )}
         <div className="w-full max-w-sm">
 
           <Link href="/" className="mb-10 block font-display text-lg font-semibold text-foreground lg:hidden">
@@ -169,8 +180,9 @@ export default function LoginPage() {
               ) : (
                 <form className="mt-6 space-y-5" onSubmit={handleForgotPassword}>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-secondary">Email</label>
+                    <label htmlFor="reset-email" className="mb-1.5 block text-xs font-medium text-secondary">Email</label>
                     <input
+                      id="reset-email"
                       type="email"
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
@@ -229,8 +241,9 @@ export default function LoginPage() {
               {tab === "signin" ? (
                 <form className="space-y-5" onSubmit={handleSignIn}>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-secondary">Email</label>
+                    <label htmlFor="signin-email" className="mb-1.5 block text-xs font-medium text-secondary">Email</label>
                     <input
+                      id="signin-email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -241,7 +254,7 @@ export default function LoginPage() {
                   </div>
                   <div>
                     <div className="mb-1.5 flex items-center justify-between">
-                      <label className="text-xs font-medium text-secondary">Password</label>
+                      <label htmlFor="signin-password" className="text-xs font-medium text-secondary">Password</label>
                       <button
                         type="button"
                         onClick={() => { setMode("forgot"); setError(""); setResetEmail(email); }}
@@ -252,6 +265,7 @@ export default function LoginPage() {
                     </div>
                     <div className="relative">
                       <input
+                        id="signin-password"
                         type={showPass ? "text" : "password"}
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
@@ -260,6 +274,7 @@ export default function LoginPage() {
                         className="input-gold h-11 w-full rounded-md border border-border bg-bg-input px-4 pr-10 text-sm text-foreground placeholder:text-muted"
                       />
                       <button type="button" onClick={() => setShowPass(!showPass)}
+                        aria-label={showPass ? "Hide password" : "Show password"}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-secondary transition-colors">
                         {showPass ? (
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -280,30 +295,31 @@ export default function LoginPage() {
               ) : (
                 <form className="space-y-5" onSubmit={handleSignUp}>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-secondary">Firm Name</label>
-                    <input type="text" value={firmName} onChange={(e) => setFirmName(e.target.value)}
+                    <label htmlFor="signup-firm" className="mb-1.5 block text-xs font-medium text-secondary">Firm Name</label>
+                    <input id="signup-firm" type="text" value={firmName} onChange={(e) => setFirmName(e.target.value)}
                       placeholder="Mullen & Mullen Law Firm" required
                       className="input-gold h-11 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground placeholder:text-muted" />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-secondary">Full Name</label>
-                    <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
+                    <label htmlFor="signup-name" className="mb-1.5 block text-xs font-medium text-secondary">Full Name</label>
+                    <input id="signup-name" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
                       placeholder="Shane Mullen" required
                       className="input-gold h-11 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground placeholder:text-muted" />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-secondary">Email</label>
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                    <label htmlFor="signup-email" className="mb-1.5 block text-xs font-medium text-secondary">Email</label>
+                    <input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@yourfirm.com" required
                       className="input-gold h-11 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground placeholder:text-muted" />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-medium text-secondary">Password</label>
+                    <label htmlFor="signup-password" className="mb-1.5 block text-xs font-medium text-secondary">Password</label>
                     <div className="relative">
-                      <input type={showPass ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
+                      <input id="signup-password" type={showPass ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
                         placeholder="Min. 8 characters" required minLength={8}
                         className="input-gold h-11 w-full rounded-md border border-border bg-bg-input px-4 pr-10 text-sm text-foreground placeholder:text-muted" />
                       <button type="button" onClick={() => setShowPass(!showPass)}
+                        aria-label={showPass ? "Hide password" : "Show password"}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-secondary transition-colors">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                       </button>

@@ -111,7 +111,7 @@ export default function OnboardingPage() {
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-lg rounded-lg border border-border bg-bg-card p-10">
+      <div className="w-full max-w-lg rounded-lg border border-border bg-card p-10">
 
         {/* ── Step 1: Firm Profile ── */}
         {step === 1 && (
@@ -120,22 +120,25 @@ export default function OnboardingPage() {
             <p className="mt-2 text-sm text-muted">This helps us build your AI visibility audit.</p>
             <div className="mt-8 space-y-5">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-secondary">Firm Name</label>
-                <input value={firmName} onChange={(e) => setFirmName(e.target.value)}
-                  placeholder="Mullen & Mullen Law Firm"
+                <label htmlFor="onboard-firm" className="mb-1.5 block text-xs font-medium text-secondary">Firm Name</label>
+                <input id="onboard-firm" value={firmName} onChange={(e) => setFirmName(e.target.value)}
+                  placeholder="Mullen & Mullen Law Firm" required
                   className="input-gold h-11 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground placeholder:text-muted" />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-secondary">Primary City / Metro</label>
-                <select value={metro} onChange={(e) => setMetro(e.target.value)}
-                  className="input-gold h-11 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground">
-                  <option value="">Select metro...</option>
-                  {METROS.map((m) => <option key={m} value={m}>{m}</option>)}
+                <label htmlFor="onboard-metro" className="mb-1.5 block text-xs font-medium text-secondary">Primary City / Metro</label>
+                <div className="relative">
+                <select id="onboard-metro" value={metro} onChange={(e) => setMetro(e.target.value)} required
+                  className="input-gold h-11 w-full appearance-none rounded-md border border-border bg-bg-input px-4 pr-10 text-sm text-foreground">
+                  <option value="" className="bg-[var(--bg-input)] text-[var(--foreground)]">Select metro...</option>
+                  {METROS.map((m) => <option key={m} value={m} className="bg-[var(--bg-input)] text-[var(--foreground)]">{m}</option>)}
                 </select>
+                <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-secondary">Website URL</label>
-                <input value={website} onChange={(e) => setWebsite(e.target.value)}
+                <label htmlFor="onboard-website" className="mb-1.5 block text-xs font-medium text-secondary">Website URL</label>
+                <input id="onboard-website" value={website} onChange={(e) => setWebsite(e.target.value)}
                   placeholder="https://yourfirm.com"
                   className="input-gold h-11 w-full rounded-md border border-border bg-bg-input px-4 text-sm text-foreground placeholder:text-muted" />
               </div>
@@ -184,8 +187,10 @@ export default function OnboardingPage() {
             <h1 className="font-display text-2xl font-semibold text-foreground">Who&apos;s competing for your clients in AI?</h1>
             <p className="mt-2 text-sm text-muted">We&apos;ll track whether AI recommends them instead of you. Up to 5 firms.</p>
             <div className="mt-8">
+              <label htmlFor="onboard-competitor" className="sr-only">Competitor firm name</label>
               <div className="flex gap-2">
                 <input
+                  id="onboard-competitor"
                   value={competitorInput}
                   onChange={(e) => setCompetitorInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCompetitor())}
@@ -280,8 +285,14 @@ export default function OnboardingPage() {
           ) : <div />}
 
           {step < TOTAL && (
-            <button onClick={() => setStep(step + 1)}
-              className="rounded bg-accent px-6 py-2.5 text-sm font-semibold text-background hover:bg-accent-muted transition-colors">
+            <button
+              onClick={() => setStep(step + 1)}
+              disabled={
+                (step === 1 && (!firmName.trim() || !metro)) ||
+                (step === 2 && practiceAreas.length === 0)
+              }
+              className="rounded bg-accent px-6 py-2.5 text-sm font-semibold text-background hover:bg-accent-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
               Continue
             </button>
           )}

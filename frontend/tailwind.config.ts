@@ -12,7 +12,6 @@ const config: Config = {
         /* Semantic — map to CSS vars */
         background:    "var(--background)",
         "bg-secondary":"var(--bg-secondary)",
-        "bg-card":     "var(--bg-card)",
         "bg-input":    "var(--bg-input)",
         foreground:    "var(--foreground)",
         secondary:     "var(--text-secondary)",

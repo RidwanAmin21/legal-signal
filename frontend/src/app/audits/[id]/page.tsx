@@ -53,7 +53,7 @@ export default function AuditDetailPage() {
 
   return (
     <DashboardLayout firmName={firmName}>
-      <div className="px-8 py-8">
+      <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
 
         {/* Breadcrumb */}
         <nav className="mb-6 flex items-center gap-2 text-xs text-muted">
@@ -75,9 +75,9 @@ export default function AuditDetailPage() {
         ) : (
           <>
             {/* Page header */}
-            <div className="mb-8 flex items-start justify-between">
+            <div className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h1 className="font-display text-2xl font-semibold text-foreground">Audit — {auditDate}</h1>
+                <h1 className="font-display text-xl font-semibold text-foreground sm:text-2xl">Audit — {auditDate}</h1>
                 <p className="mt-1 text-sm text-muted">
                   {run.prompts_sent ?? "—"} queries · {run.responses_received ?? "—"} responses
                 </p>
@@ -95,14 +95,14 @@ export default function AuditDetailPage() {
 
             {/* Summary cards */}
             {score && (
-              <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
                 {[
                   { label: "Queries Tested",  value: run.prompts_sent ?? "—",       sub: "across AI engines" },
                   { label: "Times Mentioned", value: mentionedCount,                 sub: "queries", color: "text-accent" },
                   { label: "Mention Rate",    value: `${Math.round((score.mention_rate ?? 0) * 100)}%`, sub: "of all queries" },
                   { label: "First-Position",  value: firstPositionCount,             sub: "times ranked #1", color: "text-success" },
                 ].map(({ label, value, sub, color }) => (
-                  <div key={label} className="rounded-lg border border-border bg-bg-card p-5">
+                  <div key={label} className="rounded-lg border border-border bg-card p-5">
                     <p className="text-xs text-muted">{label}</p>
                     <p className={`mt-2 font-display text-3xl font-semibold ${color ?? "text-foreground"}`}>{value}</p>
                     <p className="mt-1 text-xs text-muted">{sub}</p>
@@ -111,8 +111,8 @@ export default function AuditDetailPage() {
               </div>
             )}
 
-            {/* Query breakdown */}
-            <div className="mb-8 rounded-lg border border-border bg-bg-card overflow-hidden">
+            {/* Query breakdown — scrollable table on mobile */}
+            <div className="mb-8 rounded-lg border border-border bg-card overflow-hidden overflow-x-auto">
               <div className="border-b border-border px-5 py-4">
                 <h2 className="text-sm font-medium text-foreground">Query Breakdown</h2>
                 <p className="mt-0.5 text-xs text-muted">Each query tested across every AI engine</p>
@@ -120,7 +120,7 @@ export default function AuditDetailPage() {
               {responses.length === 0 ? (
                 <p className="px-5 py-8 text-xs text-muted text-center">No response data available.</p>
               ) : (
-                <table className="w-full text-xs">
+                <table className="w-full min-w-[700px] text-xs">
                   <thead>
                     <tr className="border-b border-border bg-background/30">
                       <th className="px-5 py-3 text-left font-medium text-muted">Query</th>
@@ -188,7 +188,7 @@ export default function AuditDetailPage() {
 
             {/* Platform scores */}
             {score && (
-              <div className="rounded-lg border border-border bg-bg-card p-5 max-w-sm">
+              <div className="rounded-lg border border-border bg-card p-5 max-w-sm">
                 <h2 className="mb-4 text-sm font-medium text-foreground">Platform Scores</h2>
                 <div className="space-y-3">
                   {[

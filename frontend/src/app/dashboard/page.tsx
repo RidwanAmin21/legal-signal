@@ -6,6 +6,7 @@ import { useClientId } from "@/hooks/useClientId";
 import { useScores } from "@/hooks/useScores";
 import { useCompetitors } from "@/hooks/useCompetitors";
 import { createClient } from "@/lib/supabase-browser";
+import LoadingScreen, { useMinLoadingDuration } from "@/components/LoadingScreen";
 
 const ENGINE_ICON: Record<string, string> = {
   perplexity: "P", chatgpt: "G", gemini: "Ge",
@@ -84,29 +85,38 @@ export default function DashboardPage() {
     : null;
 
   const loading = clientLoading;
+  const showLoading = useMinLoadingDuration(loading);
   const hasAuditData = !!latestScore;
   const auditsLoaded = audits !== undefined;
 
+  if (showLoading) {
+    return (
+      <DashboardLayout firmName={firmName}>
+        <LoadingScreen message="Loading your dashboard\u2026" fullScreen={false} />
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout firmName={firmName}>
-      <div className="px-8 py-8">
+      <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
 
         {/* Page header */}
-        <div className="mb-8 flex items-start justify-between">
+        <div className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="font-display text-2xl font-semibold text-foreground">{firmName}</h1>
+            <h1 className="font-display text-xl font-semibold text-foreground sm:text-2xl">{firmName}</h1>
             <p className="mt-1 text-sm text-muted">
               {client?.market_key?.replace("_", ", ") ?? "—"} · {client?.practice_areas?.[0] ?? "—"}
               {latestRun?.week_date ? ` · Last audit: ${new Date(latestRun.week_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}
             </p>
           </div>
-          <a href="/audits" className="rounded border border-border px-4 py-2 text-sm text-secondary hover:border-secondary hover:text-foreground transition-colors">
+          <a href="/audits" className="self-start rounded border border-border px-4 py-2 text-sm text-secondary hover:border-secondary hover:text-foreground transition-colors">
             View Audits
           </a>
         </div>
 
         {/* ── Score hero ── */}
-        <div className="mb-6 rounded-lg border border-border bg-bg-card p-8">
+        <div className="mb-6 rounded-lg border border-border bg-card p-8">
           {loading || !auditsLoaded ? (
             <div className="h-24 animate-pulse rounded bg-border" />
           ) : !hasAuditData ? (
@@ -159,7 +169,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Metric cards ── */}
-        <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
           {[
             {
               label: "AI Mentions",
@@ -186,7 +196,7 @@ export default function DashboardPage() {
               up: competitorGap !== null ? competitorGap <= 0 : null,
             },
           ].map(({ label, value, change, up }) => (
-            <div key={label} className="rounded-lg border border-border bg-bg-card p-5">
+            <div key={label} className="rounded-lg border border-border bg-card p-5">
               <p className="text-xs text-muted">{label}</p>
               <p className="mt-2 font-display text-3xl font-semibold text-foreground">{value}</p>
               <p className={`mt-1 text-xs font-medium ${
@@ -202,7 +212,7 @@ export default function DashboardPage() {
 
           {/* ── Recent audit queries (3/5 cols) ── */}
           <div className="lg:col-span-3">
-            <div className="rounded-lg border border-border bg-bg-card overflow-hidden">
+            <div className="rounded-lg border border-border bg-card overflow-hidden overflow-x-auto">
               <div className="flex items-center justify-between border-b border-border px-5 py-4">
                 <h2 className="text-sm font-medium text-foreground">Recent Audit Queries</h2>
                 <a href="/audits" className="text-xs text-accent hover:text-accent-muted transition-colors">View all →</a>
@@ -216,7 +226,7 @@ export default function DashboardPage() {
               ) : recentResponses.length === 0 ? (
                 <p className="px-5 py-8 text-xs text-muted text-center">No audit data yet. Run the pipeline to see results.</p>
               ) : (
-                <table className="w-full text-xs">
+                <table className="w-full min-w-[400px] text-xs">
                   <thead>
                     <tr className="border-b border-border bg-background/30">
                       <th className="px-5 py-3 text-left font-medium text-muted">Query</th>
@@ -262,7 +272,7 @@ export default function DashboardPage() {
           <div className="lg:col-span-2 space-y-6">
 
             {/* Competitor snapshot */}
-            <div className="rounded-lg border border-border bg-bg-card p-5">
+            <div className="rounded-lg border border-border bg-card p-5">
               <h2 className="mb-4 text-sm font-medium text-foreground">Competitor Visibility</h2>
               {!auditsLoaded ? (
                 <div className="h-32 animate-pulse rounded bg-border" />
@@ -272,15 +282,15 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height={140}>
                   <BarChart data={competitorChartData} layout="vertical" margin={{ left: 0, right: 16, top: 0, bottom: 0 }}>
                     <XAxis type="number" domain={[0, 100]} hide />
-                    <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 11, fill: "#6B7280" }} tickLine={false} axisLine={false} />
+                    <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 11, fill: "var(--muted)" }} tickLine={false} axisLine={false} />
                     <Tooltip
-                      contentStyle={{ background: "#14171F", border: "1px solid #1E2230", borderRadius: 6, fontSize: 11 }}
+                      contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 6, fontSize: 11 }}
                       formatter={(v) => [v, "Score"]}
                       cursor={{ fill: "rgba(255,255,255,0.03)" }}
                     />
                     <Bar dataKey="score" radius={[0, 3, 3, 0]}>
                       {competitorChartData.map((entry, i) => (
-                        <Cell key={i} fill={entry.you ? "#C9A84C" : "#2A2D36"} />
+                        <Cell key={i} fill={entry.you ? "var(--accent)" : "#2A2D36"} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -293,7 +303,7 @@ export default function DashboardPage() {
 
             {/* Platform scores */}
             {latestScore && (
-              <div className="rounded-lg border border-border bg-bg-card p-5">
+              <div className="rounded-lg border border-border bg-card p-5">
                 <h2 className="mb-4 text-sm font-medium text-foreground">Score by Platform</h2>
                 <div className="space-y-3">
                   {[

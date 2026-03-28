@@ -1,10 +1,12 @@
 "use client";
 import DashboardLayout from "@/components/DashboardLayout";
+import EmptyState from "@/components/EmptyState";
 import { useQuery } from "@tanstack/react-query";
 import { useClientId } from "@/hooks/useClientId";
+import LoadingScreen, { useMinLoadingDuration } from "@/components/LoadingScreen";
 
 export default function ContentPage() {
-  const { clientId } = useClientId();
+  const { clientId, loading: clientLoading } = useClientId();
 
   const { data: client } = useQuery({
     queryKey: ["client"],
@@ -16,28 +18,32 @@ export default function ContentPage() {
     enabled: !!clientId,
   });
 
+  const firmName = client?.firm_name ?? "Your Firm";
+
+  const showLoading = useMinLoadingDuration(clientLoading);
+
+  if (showLoading) {
+    return (
+      <DashboardLayout firmName={firmName}>
+        <LoadingScreen message="Loading content\u2026" fullScreen={false} />
+      </DashboardLayout>
+    );
+  }
+
   return (
-    <DashboardLayout firmName={client?.firm_name ?? "Your Firm"}>
-      <div className="px-8 py-8">
-        <div className="mb-8">
-          <h1 className="font-display text-2xl font-semibold text-foreground">Content Queue</h1>
+    <DashboardLayout firmName={firmName}>
+      <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="font-display text-xl font-semibold text-foreground sm:text-2xl">Content Queue</h1>
           <p className="mt-1 text-sm text-muted">AI-generated, bar-compliant content ready to publish.</p>
         </div>
 
-        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-bg-card py-24 text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-border">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="text-muted">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-            </svg>
-          </div>
-          <p className="text-sm font-medium text-foreground">Content generation coming soon</p>
-          <p className="mt-2 max-w-sm text-xs text-muted leading-relaxed">
-            After each audit, LegalSignal will generate bar-compliant content targeting the queries
-            where your firm isn't being mentioned. Content will appear here for review before publishing.
-          </p>
+        <div className="rounded-lg border border-border bg-card">
+          <EmptyState
+            icon="content"
+            title="Content generation coming soon"
+            description="After each audit, LegalSignal will generate bar-compliant content targeting the queries where your firm isn't being mentioned. Content will appear here for review before publishing."
+          />
         </div>
       </div>
     </DashboardLayout>

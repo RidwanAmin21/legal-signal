@@ -41,7 +41,7 @@ export default function ResetPasswordPage() {
       {/* ── Left branding panel ── */}
       <div className="relative hidden lg:flex lg:w-1/2 flex-col justify-between bg-bg-secondary border-r border-border p-12 overflow-hidden">
         <div className="pointer-events-none absolute inset-0 select-none overflow-hidden opacity-[0.03]"
-          style={{ fontFamily: "serif", fontSize: 80, lineHeight: 1.1, color: "#C9A84C" }}>
+          style={{ fontFamily: "serif", fontSize: 80, lineHeight: 1.1, color: "var(--accent)" }}>
           {Array.from({ length: 80 }).map((_, i) => (
             <span key={i} style={{ display: "inline-block", margin: "0 12px" }}>§</span>
           ))}
@@ -89,9 +89,10 @@ export default function ResetPasswordPage() {
           ) : (
             <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-secondary">New Password</label>
+                <label htmlFor="new-password" className="mb-1.5 block text-xs font-medium text-secondary">New Password</label>
                 <div className="relative">
                   <input
+                    id="new-password"
                     type={showPass ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -101,6 +102,7 @@ export default function ResetPasswordPage() {
                     className="input-gold h-11 w-full rounded-md border border-border bg-bg-input px-4 pr-10 text-sm text-foreground placeholder:text-muted"
                   />
                   <button type="button" onClick={() => setShowPass(!showPass)}
+                    aria-label={showPass ? "Hide password" : "Show password"}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-secondary transition-colors">
                     {showPass ? (
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
@@ -111,8 +113,9 @@ export default function ResetPasswordPage() {
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-secondary">Confirm Password</label>
+                <label htmlFor="confirm-password" className="mb-1.5 block text-xs font-medium text-secondary">Confirm Password</label>
                 <input
+                  id="confirm-password"
                   type={showPass ? "text" : "password"}
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}

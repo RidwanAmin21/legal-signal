@@ -33,6 +33,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${fraunces.variable} ${dmSans.variable} ${jetbrains.variable}`}>
       <body className="font-sans antialiased bg-background text-foreground">
+        <a href="#main-content" className="skip-to-content">
+          Skip to content
+        </a>
         <Providers>{children}</Providers>
       </body>
     </html>

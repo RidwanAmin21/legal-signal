@@ -38,11 +38,11 @@ export default function AuditLoadingState({ onComplete }: AuditLoadingStateProps
       {/* Score ring placeholder */}
       <div className="relative mb-8 flex h-28 w-28 items-center justify-center">
         <svg className="absolute inset-0 -rotate-90" viewBox="0 0 112 112">
-          <circle cx="56" cy="56" r="48" fill="none" stroke="#1E2230" strokeWidth="6" />
+          <circle cx="56" cy="56" r="48" fill="none" stroke="var(--border)" strokeWidth="6" />
           <circle
             cx="56" cy="56" r="48"
             fill="none"
-            stroke="#C9A84C"
+            stroke="var(--accent)"
             strokeWidth="6"
             strokeLinecap="round"
             strokeDasharray={`${2 * Math.PI * 48}`}
