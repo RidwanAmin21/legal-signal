@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { motion, useReducedMotion, AnimatePresence } from "motion/react";
 
 /* ── Fade-in on scroll (below-fold sections) ─────────────────────── */
 function useFadeIn() {
@@ -41,6 +41,7 @@ function FadeSection({
 
 /* ── Shared easing curves ─────────────────────────────────────────── */
 const easeOutQuart = [0.25, 1, 0.5, 1] as const;
+const easeOutExpo = [0.16, 1, 0.3, 1] as const;
 
 /* ── Staggered scroll-in (for grids) ─────────────────────────────── */
 function StaggerItem({
@@ -107,6 +108,18 @@ function AnimatedStat({ value, suffix = "" }: { value: string; suffix?: string }
       {suffix}
     </span>
   );
+}
+
+/* ── Scroll-aware header hook ────────────────────────────────────── */
+function useScrolled(threshold = 8) {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > threshold);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [threshold]);
+  return scrolled;
 }
 
 /* ── SVG Icons ───────────────────────────────────────────────────── */
@@ -203,19 +216,19 @@ const IconClose = () => (
   </svg>
 );
 
-/* ── FAQ Accordion ───────────────────────────────────────────────── */
+/* ── FAQ Accordion (grid-template-rows for smooth height) ────────── */
 function FAQItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border-b border-border">
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between py-5 text-left cursor-pointer"
+        className="flex w-full items-center justify-between py-5 text-left cursor-pointer group"
         aria-expanded={open}
       >
-        <span className="text-sm font-medium text-foreground pr-4">{question}</span>
+        <span className="text-sm font-medium text-foreground pr-4 group-hover:text-accent transition-colors duration-200">{question}</span>
         <svg
-          className={`h-4 w-4 flex-shrink-0 text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          className={`h-4 w-4 flex-shrink-0 text-muted transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${open ? "rotate-180" : ""}`}
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -226,17 +239,23 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
         </svg>
       </button>
       <div
-        className={`overflow-hidden transition-all duration-200 ${open ? "max-h-96 pb-5" : "max-h-0"}`}
+        className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.25,1,0.5,1)]"
+        style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
       >
-        <p className="text-sm leading-relaxed text-secondary">{answer}</p>
+        <div className="overflow-hidden">
+          <p className="pb-5 text-sm leading-relaxed text-secondary">{answer}</p>
+        </div>
       </div>
     </div>
   );
 }
 
+
 /* ── Page ─────────────────────────────────────────────────────────── */
 export default function LandingPage() {
   const [mobileNav, setMobileNav] = useState(false);
+  const scrolled = useScrolled();
+  const closeMobileNav = useCallback(() => setMobileNav(false), []);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -245,36 +264,40 @@ export default function LandingPage() {
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: easeOutQuart }}
-        className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md"
+        className={`sticky top-0 z-50 transition-[background-color,border-color,backdrop-filter] duration-300 ${
+          scrolled
+            ? "border-b border-border bg-background/90 backdrop-blur-md"
+            : "border-b border-transparent bg-transparent"
+        }`}
       >
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <span className="font-display text-lg font-semibold tracking-tight">
             LegalSignal
           </span>
           <nav className="hidden items-center gap-8 md:flex">
-            <a href="#how-it-works" className="text-sm text-muted hover:text-foreground transition-colors">
+            <a href="#how-it-works" className="text-sm text-muted hover:text-foreground transition-colors duration-200">
               How it works
             </a>
-            <a href="#features" className="text-sm text-muted hover:text-foreground transition-colors">
+            <a href="#features" className="text-sm text-muted hover:text-foreground transition-colors duration-200">
               Features
             </a>
-            <a href="#compare" className="text-sm text-muted hover:text-foreground transition-colors">
+            <a href="#compare" className="text-sm text-muted hover:text-foreground transition-colors duration-200">
               Compare
             </a>
-            <a href="#pricing" className="text-sm text-muted hover:text-foreground transition-colors">
+            <a href="#pricing" className="text-sm text-muted hover:text-foreground transition-colors duration-200">
               Pricing
             </a>
           </nav>
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="hidden text-sm text-muted hover:text-foreground transition-colors sm:block"
+              className="hidden text-sm text-muted hover:text-foreground transition-colors duration-200 sm:block"
             >
               Sign in
             </Link>
             <Link
               href="/login?tab=signup"
-              className="hidden rounded bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent-muted transition-colors cursor-pointer sm:block"
+              className="hidden rounded bg-accent px-4 py-2 text-sm font-medium text-background hover:bg-accent-muted transition-colors duration-200 cursor-pointer sm:block"
             >
               Get started
             </Link>
@@ -287,48 +310,53 @@ export default function LandingPage() {
             </button>
           </div>
         </div>
-        {/* Mobile nav */}
-        {mobileNav && (
-          <div className="border-t border-border bg-background px-6 py-4 md:hidden">
-            <nav className="flex flex-col gap-4">
-              <a href="#how-it-works" onClick={() => setMobileNav(false)} className="text-sm text-muted hover:text-foreground transition-colors">How it works</a>
-              <a href="#features" onClick={() => setMobileNav(false)} className="text-sm text-muted hover:text-foreground transition-colors">Features</a>
-              <a href="#compare" onClick={() => setMobileNav(false)} className="text-sm text-muted hover:text-foreground transition-colors">Compare</a>
-              <a href="#pricing" onClick={() => setMobileNav(false)} className="text-sm text-muted hover:text-foreground transition-colors">Pricing</a>
-              <hr className="border-border" />
-              <Link href="/login" className="text-sm text-muted hover:text-foreground transition-colors">Sign in</Link>
-              <Link href="/login?tab=signup" className="rounded bg-accent px-4 py-2 text-center text-sm font-medium text-background hover:bg-accent-muted transition-colors cursor-pointer">Get started</Link>
-            </nav>
-          </div>
-        )}
+        {/* Mobile nav — animated */}
+        <AnimatePresence>
+          {mobileNav && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25, ease: easeOutQuart }}
+              className="overflow-hidden border-t border-border bg-background md:hidden"
+            >
+              <nav className="flex flex-col gap-4 px-6 py-4">
+                <a href="#how-it-works" onClick={closeMobileNav} className="text-sm text-muted hover:text-foreground transition-colors">How it works</a>
+                <a href="#features" onClick={closeMobileNav} className="text-sm text-muted hover:text-foreground transition-colors">Features</a>
+                <a href="#compare" onClick={closeMobileNav} className="text-sm text-muted hover:text-foreground transition-colors">Compare</a>
+                <a href="#pricing" onClick={closeMobileNav} className="text-sm text-muted hover:text-foreground transition-colors">Pricing</a>
+                <hr className="border-border" />
+                <Link href="/login" className="text-sm text-muted hover:text-foreground transition-colors">Sign in</Link>
+                <Link href="/login?tab=signup" className="rounded bg-accent px-4 py-2 text-center text-sm font-medium text-background hover:bg-accent-muted transition-colors cursor-pointer">Get started</Link>
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.header>
 
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden py-32 md:py-44">
+      <section className="relative overflow-hidden pt-24 pb-16 md:pt-36 md:pb-20">
         {/* Dot grid background */}
         <div className="absolute inset-0 dot-grid" />
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/95 to-background" />
-        {/* Glow orb — fades in */}
+        {/* Glow orb */}
         <motion.div
           initial={{ opacity: 0, scale: 0.92 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.6, ease: [0.16, 1, 0.3, 1] }}
-          className="hero-glow absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+          transition={{ duration: 1.6, ease: easeOutExpo }}
+          className="hero-glow absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2"
         />
 
         <div className="relative mx-auto max-w-4xl px-6 text-center">
-          {/* Badge — slides in */}
-          <motion.div
-            initial={{ opacity: 0, y: 6, filter: "blur(3px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            transition={{ duration: 0.5, delay: 0.15, ease: easeOutQuart }}
-            className="mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5"
+          {/* Eyebrow */}
+          <motion.p
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 0.5, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1, ease: easeOutQuart }}
+            className="mb-6 text-[11px] font-medium uppercase tracking-[0.2em] text-accent-muted"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse-dot" />
-            <span className="text-xs font-medium text-secondary">
-              Generative Engine Optimization for Law Firms
-            </span>
-          </motion.div>
+            Generative Engine Optimization for Law Firms
+          </motion.p>
 
           {/* Headline — word-by-word blur reveal */}
           <h1 className="font-display text-balance text-5xl font-semibold leading-[1.08] tracking-tight text-foreground md:text-6xl lg:text-7xl">
@@ -377,7 +405,7 @@ export default function LandingPage() {
             </motion.span>
           </h1>
 
-          {/* Description — fade in after headline */}
+          {/* Description */}
           <motion.p
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -389,7 +417,7 @@ export default function LandingPage() {
             tracks competitors, and helps you get recommended.
           </motion.p>
 
-          {/* CTAs — fade up after description */}
+          {/* CTAs */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -398,32 +426,50 @@ export default function LandingPage() {
           >
             <Link
               href="/login?tab=signup"
-              className="group relative rounded bg-accent px-7 py-3.5 text-sm font-semibold text-background transition-colors hover:bg-accent-muted cursor-pointer"
+              className="group relative rounded bg-accent px-7 py-3.5 text-sm font-semibold text-background transition-colors duration-200 hover:bg-accent-muted cursor-pointer"
             >
               Get Your Free AI Visibility Audit
             </Link>
             <a
               href="#how-it-works"
-              className="text-sm text-muted hover:text-foreground transition-colors cursor-pointer"
+              className="text-sm text-muted hover:text-foreground transition-colors duration-200 cursor-pointer"
             >
               See how it works &rarr;
             </a>
           </motion.div>
 
-          {/* Trust line — last to appear */}
-          <motion.p
+          {/* Trust line */}
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, delay: 2.1 }}
-            className="mt-8 text-xs text-muted"
+            transition={{ duration: 0.6, delay: 2.6 }}
+            className="mt-12 flex flex-col items-center gap-3"
           >
-            Trusted by firms across Dallas, Houston, and Los Angeles
-          </motion.p>
+            <div className="flex items-center gap-3">
+              <div className="flex -space-x-2">
+                {["M", "S", "J", "R"].map((initial, i) => (
+                  <div
+                    key={initial}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-background text-[10px] font-semibold"
+                    style={{
+                      background: ["#1E2230", "#1A2332", "#22201A", "#1A1E2A"][i],
+                      color: ["#9CA3AF", "#60A5FA", "#C9A84C", "#34D399"][i],
+                    }}
+                  >
+                    {initial}
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted">
+                Trusted by firms across Dallas, Houston, and Los Angeles
+              </p>
+            </div>
+          </motion.div>
         </div>
       </section>
 
       {/* ── Problem / Stats ── */}
-      <section className="border-t border-border bg-bg-secondary py-24">
+      <section className="border-t border-border bg-bg-secondary py-20 md:py-28">
         <div className="mx-auto max-w-6xl px-6">
           <FadeSection>
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
@@ -435,7 +481,7 @@ export default function LandingPage() {
             </h2>
           </FadeSection>
 
-          <div className="mt-14 grid gap-6 sm:grid-cols-3">
+          <div className="mt-14 grid gap-px sm:grid-cols-3 rounded-lg border border-border overflow-hidden">
             {[
               {
                 stat: "40",
@@ -456,12 +502,12 @@ export default function LandingPage() {
               <StaggerItem
                 key={stat + suffix}
                 index={i}
-                className="rounded-lg border border-border bg-card p-8 card-hover"
+                className="bg-card p-8 md:p-10"
               >
-                <p className="font-display text-5xl font-semibold text-accent">
+                <p className="font-display text-5xl font-semibold text-accent md:text-6xl">
                   <AnimatedStat value={stat} suffix={suffix} />
                 </p>
-                <p className="mt-4 text-sm leading-relaxed text-secondary">
+                <p className="mt-4 text-sm leading-relaxed text-secondary max-w-[26ch]">
                   {label}
                 </p>
               </StaggerItem>
@@ -471,7 +517,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── How it works ── */}
-      <section id="how-it-works" className="py-24">
+      <section id="how-it-works" className="py-20 md:py-28">
         <div className="mx-auto max-w-6xl px-6">
           <FadeSection>
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
@@ -482,7 +528,9 @@ export default function LandingPage() {
             </h2>
           </FadeSection>
 
-          <div className="mt-14 grid gap-8 md:grid-cols-3">
+          <div className="mt-14 grid gap-8 md:grid-cols-3 relative">
+            {/* Connecting line (desktop only) */}
+            <div className="hidden md:block absolute top-[52px] left-[calc(16.67%+20px)] right-[calc(16.67%+20px)] h-px bg-border" />
             {[
               {
                 n: "01",
@@ -506,15 +554,15 @@ export default function LandingPage() {
               <StaggerItem
                 key={n}
                 index={i}
-                className="group rounded-lg border border-border bg-card p-8 card-hover"
+                className="group relative"
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-bg-secondary text-accent">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border border-accent/30 bg-card text-accent transition-colors duration-300 group-hover:border-accent group-hover:bg-accent/[0.08]">
                     {icon}
                   </div>
                   <span className="font-mono text-xs text-muted">{n}</span>
                 </div>
-                <h3 className="mt-5 font-display text-xl font-semibold text-foreground">
+                <h3 className="font-display text-xl font-semibold text-foreground">
                   {title}
                 </h3>
                 <p className="mt-3 text-sm leading-relaxed text-secondary">
@@ -527,7 +575,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features grid ── */}
-      <section id="features" className="border-t border-border bg-bg-secondary py-24">
+      <section id="features" className="border-t border-border bg-bg-secondary py-20 md:py-28">
         <div className="mx-auto max-w-6xl px-6">
           <FadeSection>
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
@@ -575,9 +623,9 @@ export default function LandingPage() {
               <StaggerItem
                 key={title}
                 index={i}
-                className="rounded-lg border border-border bg-card p-7 card-hover"
+                className="group rounded-lg border border-border bg-card p-7 transition-[border-color,box-shadow] duration-300 hover:border-accent/20 hover:shadow-[0_0_24px_rgba(201,168,76,0.04)]"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-bg-secondary text-accent">
+                <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-bg-secondary text-accent transition-colors duration-300 group-hover:border-accent/30">
                   {icon}
                 </div>
                 <h3 className="mt-5 text-sm font-semibold text-foreground">
@@ -593,7 +641,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Comparison ── */}
-      <section id="compare" className="py-24">
+      <section id="compare" className="py-20 md:py-28">
         <div className="mx-auto max-w-6xl px-6">
           <FadeSection>
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
@@ -694,7 +742,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Social proof ── */}
-      <section className="border-t border-border bg-bg-secondary py-24">
+      <section className="border-t border-border bg-bg-secondary py-20 md:py-28">
         <div className="mx-auto max-w-6xl px-6">
           <FadeSection>
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
@@ -712,41 +760,52 @@ export default function LandingPage() {
                   "We went from invisible to the #1 recommended PI firm on Perplexity in Dallas. In six weeks.",
                 author: "Managing Partner",
                 firm: "Dallas Personal Injury Firm",
+                initials: "MP",
+                color: "#C9A84C",
               },
               {
                 quote:
                   "Finally a tool that understands legal marketing — not just SEO rebadged as AI optimization.",
                 author: "Marketing Director",
                 firm: "Houston Trial Law Group",
+                initials: "KR",
+                color: "#60A5FA",
               },
               {
                 quote:
                   "Our competitors don't know this exists yet. That's exactly where I want to be.",
                 author: "Senior Partner",
                 firm: "Los Angeles Family Law",
+                initials: "JT",
+                color: "#34D399",
               },
-            ].map(({ quote, author, firm }, i) => (
+            ].map(({ quote, author, firm, initials, color }, i) => (
               <StaggerItem
                 key={firm}
                 index={i}
-                className="rounded-lg border border-border bg-card p-8 card-hover"
+                className="flex flex-col rounded-lg border border-border bg-card p-8 transition-[border-color] duration-300 hover:border-accent/20"
               >
-                {/* Star rating */}
-                <div className="flex gap-0.5 text-accent mb-5">
-                  {[...Array(5)].map((_, i) => (
-                    <svg key={i} className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-                <p className="text-sm leading-relaxed text-secondary">
-                  &ldquo;{quote}&rdquo;
+                {/* Pull quote mark */}
+                <span className="font-display text-4xl leading-none text-accent/30 select-none">&ldquo;</span>
+                <p className="mt-2 flex-1 text-sm leading-relaxed text-secondary">
+                  {quote}
                 </p>
-                <div className="mt-6 border-t border-border pt-4">
-                  <p className="text-sm font-medium text-foreground">
-                    {author}
-                  </p>
-                  <p className="mt-0.5 text-xs text-accent">{firm}</p>
+                <div className="mt-6 flex items-center gap-3 border-t border-border pt-5">
+                  <div
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-semibold"
+                    style={{
+                      background: `color-mix(in oklch, ${color} 15%, var(--bg-card))`,
+                      color: color,
+                    }}
+                  >
+                    {initials}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {author}
+                    </p>
+                    <p className="text-xs text-muted">{firm}</p>
+                  </div>
                 </div>
               </StaggerItem>
             ))}
@@ -755,7 +814,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Pricing ── */}
-      <section id="pricing" className="py-24">
+      <section id="pricing" className="py-20 md:py-28">
         <div className="mx-auto max-w-md px-6 text-center">
           <FadeSection>
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
@@ -803,7 +862,7 @@ export default function LandingPage() {
 
               <Link
                 href="/login?tab=signup"
-                className="mt-10 flex w-full items-center justify-center rounded bg-accent py-3 text-sm font-semibold text-background hover:bg-accent-muted transition-colors cursor-pointer"
+                className="mt-10 flex w-full items-center justify-center rounded bg-accent py-3 text-sm font-semibold text-background hover:bg-accent-muted transition-colors duration-200 cursor-pointer"
               >
                 Start Your Audit
               </Link>
@@ -816,7 +875,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="border-t border-border bg-bg-secondary py-24">
+      <section className="border-t border-border bg-bg-secondary py-20 md:py-28">
         <div className="mx-auto max-w-2xl px-6">
           <FadeSection>
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
@@ -857,7 +916,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Final CTA ── */}
-      <section className="relative overflow-hidden py-24">
+      <section className="relative overflow-hidden py-20 md:py-28">
         <div className="absolute inset-0 dot-grid" />
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/95 to-background" />
         <div className="hero-glow absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
@@ -873,13 +932,13 @@ export default function LandingPage() {
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Link
                 href="/login?tab=signup"
-                className="rounded bg-accent px-7 py-3.5 text-sm font-semibold text-background hover:bg-accent-muted transition-colors cursor-pointer"
+                className="rounded bg-accent px-7 py-3.5 text-sm font-semibold text-background hover:bg-accent-muted transition-colors duration-200 cursor-pointer"
               >
                 Get Your Free AI Visibility Audit
               </Link>
               <a
                 href="#pricing"
-                className="text-sm text-muted hover:text-foreground transition-colors cursor-pointer"
+                className="text-sm text-muted hover:text-foreground transition-colors duration-200 cursor-pointer"
               >
                 View pricing &rarr;
               </a>
@@ -895,10 +954,10 @@ export default function LandingPage() {
             LegalSignal
           </span>
           <div className="flex gap-6 text-xs text-muted">
-            <a href="#" className="hover:text-foreground transition-colors cursor-pointer">
+            <a href="#" className="hover:text-foreground transition-colors duration-200 cursor-pointer">
               Privacy Policy
             </a>
-            <a href="#" className="hover:text-foreground transition-colors cursor-pointer">
+            <a href="#" className="hover:text-foreground transition-colors duration-200 cursor-pointer">
               Terms of Service
             </a>
           </div>
